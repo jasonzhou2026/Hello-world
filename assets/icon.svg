@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fitness nutrition app icon">
+  <rect width="512" height="512" rx="96" fill="#f6f8fb"/>
+  <circle cx="256" cy="256" r="178" fill="#dfe8e2"/>
+  <path d="M142 276h228" stroke="#182235" stroke-width="34" stroke-linecap="round"/>
+  <path d="M116 226v104M396 226v104" stroke="#182235" stroke-width="42" stroke-linecap="round"/>
+  <path d="M170 210v142M342 210v142" stroke="#2c6f73" stroke-width="32" stroke-linecap="round"/>
+  <path d="M214 188c34-44 86-44 120 0-28 18-92 18-120 0Z" fill="#7aa874"/>
+  <path d="M246 172c6 18 14 33 28 46" stroke="#182235" stroke-width="14" stroke-linecap="round"/>
+</svg>
