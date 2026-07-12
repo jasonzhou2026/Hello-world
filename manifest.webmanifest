@@ -3,8 +3,8 @@
   "short_name": "健身记录",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f6f8fb",
-  "theme_color": "#182235",
+  "background_color": "#dbe7f2",
+  "theme_color": "#173b66",
   "icons": [
     {
       "src": "./assets/icon.svg",
@@ -13,9 +13,27 @@
       "purpose": "any"
     },
     {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "./assets/icon-maskable.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ]

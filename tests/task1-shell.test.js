@@ -11,6 +11,8 @@ test("service worker fetches from the current cache and cleans older caches", as
   assert.match(source, /cacheName\.startsWith\(CACHE_PREFIX\)/);
   assert.match(source, /cacheName !== CACHE_NAME/);
   assert.match(source, /caches\.delete\(cacheName\)/);
+  assert.match(source, /self\.skipWaiting\(\)/);
+  assert.match(source, /self\.clients\.claim\(\)/);
   assert.doesNotMatch(source, /\.filter\(\(cacheName\) => cacheName !== CACHE_NAME\)/);
   assert.doesNotMatch(source, /caches\.match\(event\.request\)/);
   assert.match(source, /caches\s*\.\s*open\(CACHE_NAME\)/);
@@ -28,17 +30,25 @@ test("service worker precaches every static app module", async () => {
     [
       "./",
       "./assets/icon.svg",
+      "./assets/icon-192.png",
+      "./assets/icon-512.png",
       "./assets/icon-maskable.svg",
+      "./assets/icon-maskable-512.png",
       "./index.html",
       "./manifest.webmanifest",
-      "./src/styles.css",
-      "./src/app.js",
-      "./src/domain/nutrition.js",
-      "./src/domain/reports.js",
-      "./src/domain/training.js",
-      "./src/export/xlsx.js",
-      "./src/sampleData.js",
-      "./src/storage/db.js"
+      "./src/styles.css?v=25",
+      "./src/app.js?v=25",
+      "./src/muscle-map.js?v=25",
+      "./src/domain/backup.js?v=25",
+      "./src/domain/nutrition.js?v=25",
+      "./src/domain/overview.js?v=25",
+      "./src/domain/reports.js?v=25",
+      "./src/domain/training.js?v=25",
+      "./src/export/xlsx.js?v=25",
+      "./src/sampleData.js?v=25",
+      "./src/storage/db.js?v=25",
+      "./src/vendor/three.core.min.js",
+      "./src/vendor/three.module.min.js"
     ].filter((asset) => !cachedAssets.has(asset)),
     []
   );
@@ -60,8 +70,23 @@ test("manifest declares install icons backed by local files", async () => {
         purpose: "any"
       },
       {
+        src: "./assets/icon-192.png",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "./assets/icon-512.png",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
         src: "./assets/icon-maskable.svg",
         type: "image/svg+xml",
+        purpose: "maskable"
+      },
+      {
+        src: "./assets/icon-maskable-512.png",
+        type: "image/png",
         purpose: "maskable"
       }
     ]
@@ -69,8 +94,9 @@ test("manifest declares install icons backed by local files", async () => {
 
   await Promise.all(
     manifest.icons.map(async (icon) => {
-      const source = await readFile(icon.src.replace("./", ""), "utf8");
-      assert.match(source, /<svg\b/);
+      const source = await readFile(icon.src.replace("./", ""));
+      if (icon.type === "image/svg+xml") assert.match(source.toString("utf8"), /<svg\b/);
+      else assert.deepEqual([...source.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
     })
   );
 });

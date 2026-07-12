@@ -31,7 +31,8 @@ export function buildWeeklyReport({ weekStart, foodEntries, trainingSessions }) 
       netCalories: days.map((day) => day.netCalories),
       protein: days.map((day) => day.nutrition.protein),
       strengthVolume: days.map((day) => day.training.strengthVolume),
-      aerobicDistance: days.map((day) => day.training.distanceKm)
+      aerobicDistance: days.map((day) => day.training.distanceKm),
+      aerobicDuration: days.map((day) => day.training.aerobicDurationMinutes)
     }
   };
 }

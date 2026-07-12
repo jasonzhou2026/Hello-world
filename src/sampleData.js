@@ -2,6 +2,11 @@ export const defaultSettings = {
   bodyWeightKg: 70,
   calorieGoal: 2400,
   calorieGoalBand: { min: 250, max: 400, label: "增肌期" },
+  preferredExercise: "squat 深蹲",
+  preferredMuscleGroup: "quads 股四头",
+  weightGoalKg: 100,
+  bestExerciseNote: "Keep depth consistent 保持深度一致",
+  personalMemo: "Progress slowly, recover fully 稳步加重，充分恢复",
   macroTargets: { protein: 140, carbs: 280, fat: 70 },
   micronutrientTargets: {
     calcium: 1000,

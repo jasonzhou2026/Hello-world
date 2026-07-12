@@ -48,10 +48,20 @@ export function summarizeTrainingForDate(sessions, date) {
         summary.strengthVolume += calculateStrengthVolume(sets);
         summary.totalSets += sets.length;
         summary.durationMinutes += Number(session.durationMinutes) || 0;
+        if (!exercises.length && session.activityType !== "strength") {
+          summary.aerobicDurationMinutes += Number(session.durationMinutes) || 0;
+        }
         summary.distanceKm += Number(session.distanceKm) || 0;
         summary.calories += calculateTrainingCalories(session);
         return summary;
       },
-      { strengthVolume: 0, totalSets: 0, durationMinutes: 0, distanceKm: 0, calories: 0 }
+      {
+        strengthVolume: 0,
+        totalSets: 0,
+        durationMinutes: 0,
+        aerobicDurationMinutes: 0,
+        distanceKm: 0,
+        calories: 0
+      }
     );
 }

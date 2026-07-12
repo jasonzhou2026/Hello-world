@@ -1,9 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fitness nutrition app icon">
-  <rect width="512" height="512" rx="96" fill="#f6f8fb"/>
-  <circle cx="256" cy="256" r="178" fill="#dfe8e2"/>
-  <path d="M142 276h228" stroke="#182235" stroke-width="34" stroke-linecap="round"/>
-  <path d="M116 226v104M396 226v104" stroke="#182235" stroke-width="42" stroke-linecap="round"/>
-  <path d="M170 210v142M342 210v142" stroke="#2c6f73" stroke-width="32" stroke-linecap="round"/>
-  <path d="M214 188c34-44 86-44 120 0-28 18-92 18-120 0Z" fill="#7aa874"/>
-  <path d="M246 172c6 18 14 33 28 46" stroke="#182235" stroke-width="14" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Oracle road movement fitness app icon">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="42" x2="440" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28689f"/>
+      <stop offset="0.55" stop-color="#173f6d"/>
+      <stop offset="1" stop-color="#0d2948"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(238 224) rotate(48) scale(104)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffba63"/>
+      <stop offset="0.58" stop-color="#f18b32"/>
+      <stop offset="1" stop-color="#d75b2e"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#081a2e" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+  <g fill="none" stroke="#f6ead6" stroke-width="25" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M226 218C205 179 194 132 199 78"/>
+    <path d="M286 218C307 179 318 132 313 78"/>
+    <path d="M218 226C179 205 132 194 78 199"/>
+    <path d="M218 286C179 307 132 318 78 313"/>
+    <path d="M286 294C307 333 318 380 313 434"/>
+    <path d="M226 294C205 333 194 380 199 434"/>
+    <path d="M294 226C333 205 380 194 434 199"/>
+    <path d="M294 286C333 307 380 318 434 313"/>
+  </g>
+  <path d="M256 205L307 256L256 307L205 256Z" fill="url(#core)" filter="url(#shadow)"/>
+  <circle cx="256" cy="256" r="13" fill="#fff4dd"/>
+  <path d="M179 139C204 116 227 103 255 96" fill="none" stroke="#f18b32" stroke-width="10" stroke-linecap="round"/>
+  <path d="M333 373C308 396 285 409 257 416" fill="none" stroke="#f18b32" stroke-width="10" stroke-linecap="round"/>
 </svg>

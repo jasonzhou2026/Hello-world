@@ -1,9 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fitness nutrition app maskable icon">
-  <rect width="512" height="512" fill="#2c6f73"/>
-  <circle cx="256" cy="256" r="190" fill="#f6f8fb"/>
-  <path d="M132 276h248" stroke="#182235" stroke-width="36" stroke-linecap="round"/>
-  <path d="M112 224v112M400 224v112" stroke="#182235" stroke-width="46" stroke-linecap="round"/>
-  <path d="M174 208v144M338 208v144" stroke="#b8793a" stroke-width="34" stroke-linecap="round"/>
-  <path d="M210 188c36-48 92-48 128 0-30 20-98 20-128 0Z" fill="#7aa874"/>
-  <path d="M246 170c7 20 16 36 30 50" stroke="#182235" stroke-width="14" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Oracle road movement fitness app maskable icon">
+  <defs>
+    <linearGradient id="bg" x1="40" y1="24" x2="472" y2="488" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28689f"/>
+      <stop offset="0.55" stop-color="#173f6d"/>
+      <stop offset="1" stop-color="#0d2948"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(242 228) rotate(48) scale(94)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffba63"/>
+      <stop offset="0.58" stop-color="#f18b32"/>
+      <stop offset="1" stop-color="#d75b2e"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g fill="none" stroke="#f6ead6" stroke-width="23" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M228 220C210 185 201 145 205 102"/>
+    <path d="M284 220C302 185 311 145 307 102"/>
+    <path d="M220 228C185 210 145 201 102 205"/>
+    <path d="M220 284C185 302 145 311 102 307"/>
+    <path d="M284 292C302 327 311 367 307 410"/>
+    <path d="M228 292C210 327 201 367 205 410"/>
+    <path d="M292 228C327 210 367 201 410 205"/>
+    <path d="M292 284C327 302 367 311 410 307"/>
+  </g>
+  <path d="M256 211L301 256L256 301L211 256Z" fill="url(#core)"/>
+  <circle cx="256" cy="256" r="12" fill="#fff4dd"/>
+  <path d="M190 154C211 136 232 124 255 118" fill="none" stroke="#f18b32" stroke-width="9" stroke-linecap="round"/>
+  <path d="M322 358C301 376 280 388 257 394" fill="none" stroke="#f18b32" stroke-width="9" stroke-linecap="round"/>
 </svg>
