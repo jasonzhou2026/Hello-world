@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
   --color-bg: #0b0d10;
-  --color-surface: rgba(27, 29, 33, 0.78);
+  --color-surface: rgba(54, 50, 47, 0.38);
   --color-surface-muted: #23262b;
   --color-text: #f6f3ee;
   --color-text-muted: #a6a6ac;
@@ -12,8 +12,11 @@
   --color-success: #ddbd8b;
   --color-danger: #ff9a91;
   --color-info: #83b9ff;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.14);
+  --color-border: rgba(255, 238, 220, 0.17);
+  --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 244, 228, 0.17),
+    inset 1px 0 0 rgba(255, 244, 228, 0.04);
+  --glass-haze: linear-gradient(135deg, rgba(255, 242, 225, 0.11), rgba(255, 255, 255, 0.015) 48%, rgba(255, 207, 171, 0.045));
   --radius-card: 22px;
   --space-1: 4px;
   --space-2: 8px;
@@ -42,7 +45,12 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: radial-gradient(ellipse at 84% 0, rgba(142, 66, 29, 0.15), transparent 45%), #0b0d10;
+  background:
+    radial-gradient(ellipse at 88% 5%, rgba(166, 83, 36, 0.25), transparent 44%),
+    radial-gradient(ellipse at 5% 65%, rgba(194, 77, 22, 0.3), transparent 49%),
+    radial-gradient(ellipse at 97% 92%, rgba(48, 91, 151, 0.2), transparent 43%),
+    #0b0d10;
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -248,7 +256,7 @@ textarea {
   border-radius: 11px;
   padding: 11px 12px;
   color: var(--color-text);
-  background: rgba(8, 10, 13, 0.62);
+  background: rgba(8, 10, 13, 0.72);
   font-size: 16px;
 }
 
@@ -278,8 +286,7 @@ textarea {
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  background: var(--color-surface);
-  backdrop-filter: blur(14px);
+  background: var(--glass-haze), var(--color-surface);
 }
 
 .metric-card,
@@ -293,7 +300,7 @@ textarea {
   position: relative;
   overflow: hidden;
   padding: 20px;
-  background: radial-gradient(ellipse at 100% 100%, rgba(137, 68, 29, 0.24), transparent 85%), rgba(25, 25, 27, 0.8);
+  background: var(--glass-haze), radial-gradient(ellipse at 85% 110%, rgba(207, 108, 46, 0.27), transparent 72%), rgba(47, 34, 27, 0.36);
 }
 
 .metric-card span,
@@ -364,7 +371,7 @@ textarea {
   padding: 24px;
   border: 1px solid rgba(255, 172, 113, 0.18);
   border-radius: var(--radius-card);
-  background: radial-gradient(ellipse at 0 0, rgba(129, 71, 35, 0.2), transparent 75%), var(--color-surface);
+  background: var(--glass-haze), radial-gradient(ellipse at 0 0, rgba(165, 87, 41, 0.2), transparent 75%), var(--color-surface);
   box-shadow: var(--shadow-soft);
 }
 
@@ -462,8 +469,8 @@ textarea {
   border: 1px solid rgba(132, 179, 234, 0.2);
   border-radius: var(--radius-card);
   color: #f0f6ff;
-  background: radial-gradient(ellipse at 64% 46%, rgba(23, 79, 155, 0.35), transparent 62%), linear-gradient(150deg, #162031, #0b101b 65%, #131c31);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  background: linear-gradient(135deg, rgba(193, 220, 255, 0.12), rgba(155, 187, 240, 0.02) 52%), radial-gradient(ellipse at 64% 46%, rgba(23, 79, 155, 0.38), transparent 68%), rgba(12, 24, 45, 0.58);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(194, 219, 255, 0.22);
 }
 
 .muscle-map-section .section-heading {
@@ -745,7 +752,7 @@ textarea {
   display: grid;
   gap: 20px;
   padding: 22px;
-  background: linear-gradient(130deg, rgba(42, 38, 34, 0.5), transparent), var(--color-surface);
+  background: var(--glass-haze), rgba(41, 35, 31, 0.4);
 }
 
 .form-actions {
@@ -1282,10 +1289,8 @@ textarea {
   padding: 7px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 24px;
-  background: rgba(27, 27, 30, 0.88);
-  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--glass-haze), rgba(42, 38, 36, 0.55);
+  box-shadow: 0 12px 45px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 239, 218, 0.2);
 }
 
 .bottom-tabs button {
@@ -1402,8 +1407,8 @@ select option { color: var(--color-text); background: #191c22; }
   padding: 22px;
   border: 1px solid rgba(223, 160, 110, 0.2);
   border-radius: var(--radius-card);
-  background: radial-gradient(ellipse at 8% 85%, rgba(174, 74, 22, 0.3), transparent 54%), radial-gradient(ellipse at 100% 0, rgba(128, 69, 34, 0.14), transparent 65%), #1b1918;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  background: var(--glass-haze), radial-gradient(ellipse at 8% 85%, rgba(202, 87, 28, 0.2), transparent 64%), rgba(45, 29, 20, 0.38);
+  box-shadow: var(--shadow-soft);
 }
 .energy-card .section-heading { margin-bottom: 2px; }
 .energy-card .eyebrow { color: #ca9e7e; }
@@ -1429,7 +1434,7 @@ select option { color: var(--color-text); background: #191c22; }
 .dot.orange { background: #ff9b64; }
 .dot.white { background: #e8ded4; }
 .screen .energy-note { margin: 17px 0 0; padding-top: 13px; border-top: 1px solid rgba(233, 181, 144, 0.12); color: #b7a79a; font-size: 0.63rem; text-align: center; }
-.metric-card:nth-child(2) { background: radial-gradient(ellipse at 100% 100%, rgba(61, 73, 100, 0.24), transparent 85%), rgba(25, 25, 27, 0.8); }
+.metric-card:nth-child(2) { background: var(--glass-haze), radial-gradient(ellipse at 100% 100%, rgba(78, 108, 151, 0.24), transparent 80%), rgba(31, 35, 44, 0.38); }
 .metric-card > span { font-size: 0.7rem; font-weight: 400; }
 .metric-card > small { font-size: 0.65rem; }
 .muscle-map-section .eyebrow { color: #94b0d4; }
@@ -1437,7 +1442,7 @@ select option { color: var(--color-text); background: #191c22; }
 .body-axis { position: absolute; top: 18px; left: 0; color: #778dab; font-size: 8px; letter-spacing: 1.8px; }
 .rotate-hint { position: absolute; right: 0; bottom: 12px; left: 0; display: flex; justify-content: center; align-items: center; gap: 6px; pointer-events: none; color: #8fa6c8; font-size: 0.61rem; }
 .rotate-hint .ui-icon { width: 13px; height: 13px; }
-.muscle-callout { position: absolute; display: grid; grid-template-columns: 6px 1fr; gap: 5px 6px; min-width: 83px; padding: 10px 11px; border: 1px solid rgba(159, 197, 247, 0.23); border-radius: 13px; background: rgba(22, 36, 62, 0.55); backdrop-filter: blur(8px); pointer-events: none; }
+.muscle-callout { position: absolute; display: grid; grid-template-columns: 6px 1fr; gap: 5px 6px; min-width: 83px; padding: 10px 11px; border: 1px solid rgba(159, 197, 247, 0.23); border-radius: 13px; background: linear-gradient(135deg, rgba(192, 215, 255, 0.14), transparent), rgba(29, 46, 74, 0.35); box-shadow: inset 0 1px 0 rgba(210, 232, 255, 0.15); backdrop-filter: blur(18px) saturate(130%); -webkit-backdrop-filter: blur(18px) saturate(130%); pointer-events: none; }
 .muscle-callout strong { font-size: 0.72rem; font-weight: 500; }
 .muscle-callout span { grid-column: 2; color: #a1b5d0; font-size: 0.55rem; }
 .muscle-callout i { width: 5px; height: 5px; margin-top: 5px; border-radius: 50%; }
@@ -1560,3 +1565,56 @@ select option { color: var(--color-text); background: #191c22; }
 .weekly-legend { justify-content: flex-end; margin-top: 12px; font-weight: 400; }
 .weekly-legend .positive { background: var(--color-primary); }
 .weekly-legend .negative { background: var(--color-info); }
+
+/* Frosted surfaces: transmitted color, soft reflections and a fine matte grain. */
+.energy-card,
+.metric-card,
+.progress-card,
+.micro-row,
+.chart-card,
+.entry-form,
+.goal-card,
+.muscle-map-section,
+.bottom-tabs {
+  isolation: isolate;
+  backdrop-filter: blur(30px) saturate(135%);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+}
+
+.progress-card,
+.chart-card,
+.entry-form {
+  position: relative;
+}
+
+.energy-card::before,
+.metric-card::before,
+.progress-card::before,
+.chart-card::before,
+.entry-form::before,
+.goal-card::before,
+.muscle-map-section::before,
+.bottom-tabs::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+  opacity: 0.075;
+  pointer-events: none;
+  content: "";
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .energy-card,
+  .metric-card,
+  .progress-card,
+  .micro-row,
+  .chart-card,
+  .entry-form,
+  .goal-card,
+  .bottom-tabs {
+    background-color: #29231f;
+  }
+  .muscle-map-section { background-color: #152138; }
+}
