@@ -3,8 +3,8 @@
   "short_name": "健身记录",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#dbe7f2",
-  "theme_color": "#173b66",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
   "icons": [
     {
       "src": "./assets/icon.svg",

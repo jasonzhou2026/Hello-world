@@ -5,7 +5,12 @@
 ## 版本
 
 - V1：Git 标签 `v1.0.0`，保留最初版本。
-- V2：分支 `codex/release-v2`，包含当前三动作训练矩阵、数据管理和 3D 肌群图。
+- V2：Git 标签 `v2.0.0`、分支 `codex/release-v2`，保留三动作训练矩阵、数据管理和 3D 肌群图。
+- V3：开发分支 `codex/redesign-v3`，保留原有记录、统计和本地数据功能，更新视觉设计；是否上线以 GitHub Pages 的发布分支为准。
+
+## V3 视觉设计
+
+以深色背景、暖橙色光感和半透明面板为主，搭配大号数据、进度环和能量条。肌群视图使用冷蓝色光感呈现人体，延续旋转与正反面查看。手机布局适配安全区域，表单、图表和数据管理保持原有功能。
 
 ## 功能
 
@@ -19,7 +24,7 @@
 - 设置：体重、热量、宏量/微量营养目标、目标动作与个人备注。
 - PWA：支持本地安装、离线缓存、IndexedDB 本地保存。
 
-云同步、账号和 AI 食物识别不属于当前静态 V2。下一阶段的数据边界与接口草案见 `docs/architecture/future-services.md`。
+云同步、账号和 AI 食物识别不属于当前静态版本。下一阶段的数据边界与接口草案见 `docs/architecture/future-services.md`。
 
 ## 本地运行
 
@@ -58,10 +63,10 @@ npm test
 这个项目是纯静态站点，不需要构建步骤。
 
 1. 在 GitHub 创建一个空仓库。
-2. 把本地项目推送到仓库的发布分支；V2 使用 `codex/release-v2`。
+2. 把本地项目推送到仓库的发布分支；V2 使用 `codex/release-v2`，V3 使用 `codex/redesign-v3`。
 3. 进入仓库 Settings -> Pages。
 4. Source 选择 `Deploy from a branch`。
-5. Branch 选择需要发布的版本分支；V2 选择 `codex/release-v2`，目录选择 `/root`。
+5. Branch 选择需要发布的版本分支，目录选择 `/root`。切换到 V3 会更新线上页面；保留 V2 分支和标签可继续查看原版。
 6. 保存后等待 GitHub Pages 发布。
 
 发布地址通常是：

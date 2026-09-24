@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "fitness-tracker-pwa-";
-const CACHE_NAME = "fitness-tracker-pwa-v25";
+const CACHE_NAME = "fitness-tracker-pwa-v32";
 const APP_ASSETS = [
   "./",
   "./assets/icon.svg",
@@ -9,17 +9,20 @@ const APP_ASSETS = [
   "./assets/icon-maskable-512.png",
   "./index.html",
   "./manifest.webmanifest",
-  "./src/styles.css?v=25",
-  "./src/app.js?v=25",
-  "./src/muscle-map.js?v=25",
-  "./src/domain/backup.js?v=25",
-  "./src/domain/nutrition.js?v=25",
-  "./src/domain/overview.js?v=25",
-  "./src/domain/reports.js?v=25",
-  "./src/domain/training.js?v=25",
-  "./src/export/xlsx.js?v=25",
-  "./src/sampleData.js?v=25",
-  "./src/storage/db.js?v=25",
+  "./src/styles.css?v=32",
+  "./src/app.js?v=32",
+  "./src/muscle-map.js?v=32",
+  "./src/domain/backup.js?v=32",
+  "./src/domain/nutrition.js?v=32",
+  "./src/domain/overview.js?v=32",
+  "./src/domain/reports.js?v=32",
+  "./src/domain/training.js?v=32",
+  "./src/domain/nutrition.js",
+  "./src/domain/reports.js",
+  "./src/domain/training.js",
+  "./src/export/xlsx.js?v=32",
+  "./src/sampleData.js?v=32",
+  "./src/storage/db.js?v=32",
   "./src/vendor/three.core.min.js",
   "./src/vendor/three.module.min.js"
 ];

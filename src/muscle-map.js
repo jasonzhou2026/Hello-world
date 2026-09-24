@@ -3,15 +3,16 @@ import * as THREE from "./vendor/three.module.min.js";
 let activeCleanup = null;
 
 const STATE_COLORS = {
-  recent: 0xe8503f,
-  warm: 0xf29b38,
-  attention: 0x315d91,
-  neutral: 0xc9a68b
+  recent: 0xff754d,
+  warm: 0xffb35d,
+  attention: 0x80cfff,
+  neutral: 0x347dcc
 };
 
 export function mountMuscleMap(canvas, { muscleStates = {}, view = "front" } = {}) {
   activeCleanup?.();
   if (!canvas) return () => {};
+  canvas.parentElement?.classList.remove("is-rotating");
 
   let renderer;
   try {
@@ -23,20 +24,23 @@ export function mountMuscleMap(canvas, { muscleStates = {}, view = "front" } = {
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-  camera.position.set(0, 0.05, 12.8);
+  camera.position.set(0, -0.32, 12.8);
 
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = 1.05;
 
-  scene.add(new THREE.HemisphereLight(0xdcecff, 0x182b46, 2.5));
-  const keyLight = new THREE.DirectionalLight(0xffffff, 3.4);
+  scene.add(new THREE.HemisphereLight(0x9bcaff, 0x081327, 1.6));
+  const keyLight = new THREE.DirectionalLight(0xecf5ff, 2.7);
   keyLight.position.set(3, 5, 5);
   scene.add(keyLight);
-  const rimLight = new THREE.DirectionalLight(0x73a7df, 2.2);
+  const rimLight = new THREE.DirectionalLight(0x438bff, 3.2);
   rimLight.position.set(-4, 2, -4);
   scene.add(rimLight);
+  const fillLight = new THREE.DirectionalLight(0x9bdfff, 0.9);
+  fillLight.position.set(-3, -1, 4);
+  scene.add(fillLight);
 
   const body = buildBody(muscleStates);
   body.rotation.y = view === "back" ? Math.PI : 0;
@@ -52,6 +56,7 @@ export function mountMuscleMap(canvas, { muscleStates = {}, view = "front" } = {
   };
   const onPointerMove = (event) => {
     if (!dragging) return;
+    if (event.clientX !== previousX) canvas.parentElement?.classList.add("is-rotating");
     targetRotation += (event.clientX - previousX) * 0.012;
     previousX = event.clientX;
   };
@@ -77,9 +82,10 @@ export function mountMuscleMap(canvas, { muscleStates = {}, view = "front" } = {
 
   let frameId = 0;
   let start = performance.now();
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const render = (time) => {
     body.rotation.y += (targetRotation - body.rotation.y) * 0.1;
-    body.position.y = Math.sin((time - start) * 0.0012) * 0.025;
+    body.position.y = reducedMotion.matches ? 0 : Math.sin((time - start) * 0.0012) * 0.025;
     renderer.render(scene, camera);
     frameId = requestAnimationFrame(render);
   };
@@ -110,8 +116,8 @@ export function disposeMuscleMap() {
 function buildBody(muscleStates) {
   const group = new THREE.Group();
   group.scale.setScalar(1);
-  const bone = material(0xe8dfd1, 0.68);
-  const joint = material(0xcab6a2, 0.76);
+  const bone = material(0x36536f, 0.46);
+  const joint = material(0x263f5e, 0.5);
 
   addPart(group, new THREE.SphereGeometry(0.38, 24, 18), bone, [0, 2.42, 0], [0.86, 1.08, 0.82]);
   addPart(group, new THREE.CapsuleGeometry(0.12, 0.32, 8, 14), bone, [0, 1.93, 0]);
@@ -153,7 +159,7 @@ function buildBody(muscleStates) {
 function addMuscles(group, states) {
   const muscleMaterial = (name) => {
     const color = STATE_COLORS[states[name]?.state] || STATE_COLORS.neutral;
-    return material(color, 0.62);
+    return material(color, 0.36);
   };
   const paired = (geometry, name, positions, scales = [1, 1, 1]) => {
     for (const position of positions) addPart(group, geometry, muscleMaterial(name), position, scales);
@@ -250,5 +256,11 @@ function addPart(group, geometry, partMaterial, position, scale = [1, 1, 1], rot
 }
 
 function material(color, roughness) {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness: 0.04 });
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness,
+    metalness: 0.16,
+    emissive: color,
+    emissiveIntensity: 0.12
+  });
 }

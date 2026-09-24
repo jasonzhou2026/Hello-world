@@ -19,39 +19,37 @@ test("service worker fetches from the current cache and cleans older caches", as
   assert.match(source, /cache\.match\(event\.request\)/);
 });
 
-test("service worker precaches every static app module", async () => {
-  const source = await readFile("service-worker.js", "utf8");
+test("service worker precaches shell assets and every imported app module", async () => {
+  const [source, html, manifestSource] = await Promise.all([
+    readFile("service-worker.js", "utf8"),
+    readFile("index.html", "utf8"),
+    readFile("manifest.webmanifest", "utf8")
+  ]);
   const assetsBlock = source.match(/const APP_ASSETS = \[([\s\S]*?)\];/)?.[1] || "";
   const cachedAssets = new Set(
     [...assetsBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1])
   );
+  const requiredAssets = [
+    "./",
+    "./index.html",
+    ...JSON.parse(manifestSource).icons.map((icon) => icon.src),
+    ...[...html.matchAll(/(?:src|href)="(\.\/[^"]+)"/g)].map((match) => match[1])
+  ];
+  const inspected = new Set();
 
-  assert.deepEqual(
-    [
-      "./",
-      "./assets/icon.svg",
-      "./assets/icon-192.png",
-      "./assets/icon-512.png",
-      "./assets/icon-maskable.svg",
-      "./assets/icon-maskable-512.png",
-      "./index.html",
-      "./manifest.webmanifest",
-      "./src/styles.css?v=25",
-      "./src/app.js?v=25",
-      "./src/muscle-map.js?v=25",
-      "./src/domain/backup.js?v=25",
-      "./src/domain/nutrition.js?v=25",
-      "./src/domain/overview.js?v=25",
-      "./src/domain/reports.js?v=25",
-      "./src/domain/training.js?v=25",
-      "./src/export/xlsx.js?v=25",
-      "./src/sampleData.js?v=25",
-      "./src/storage/db.js?v=25",
-      "./src/vendor/three.core.min.js",
-      "./src/vendor/three.module.min.js"
-    ].filter((asset) => !cachedAssets.has(asset)),
-    []
-  );
+  for (const asset of requiredAssets) {
+    if (inspected.has(asset)) continue;
+    inspected.add(asset);
+    assert.ok(cachedAssets.has(asset), `Missing offline asset: ${asset}`);
+    const url = new URL(asset, "https://fitness.test/");
+    if (!url.pathname.endsWith(".js")) continue;
+    const moduleSource = await readFile(url.pathname.slice(1), "utf8");
+    const imports = moduleSource.matchAll(/\b(?:from\s*|import\s*\(\s*|import\s*)["'](\.[^"']+)["']/g);
+    for (const match of imports) {
+      const dependency = new URL(match[1], url);
+      requiredAssets.push(`.${dependency.pathname}${dependency.search}`);
+    }
+  }
 });
 
 test("manifest declares install icons backed by local files", async () => {

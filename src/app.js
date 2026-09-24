@@ -1,10 +1,10 @@
-import { buildDailySummary, buildWeeklyReport } from "./domain/reports.js?v=25";
-import { addDays } from "./domain/nutrition.js?v=25";
-import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=25";
-import { buildMuscleRecency, buildTrainingComparison } from "./domain/overview.js?v=25";
-import { buildExportRows, createWorkbookBlobParts, XLSX_MIME_TYPE } from "./export/xlsx.js?v=25";
-import { listRecords, saveRecord, softDeleteRecord } from "./storage/db.js?v=25";
-import { defaultSettings, sampleFoodEntries, sampleTrainingSessions } from "./sampleData.js?v=25";
+import { buildDailySummary, buildWeeklyReport } from "./domain/reports.js?v=32";
+import { addDays } from "./domain/nutrition.js?v=32";
+import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=32";
+import { buildMuscleRecency, buildTrainingComparison } from "./domain/overview.js?v=32";
+import { buildExportRows, createWorkbookBlobParts, XLSX_MIME_TYPE } from "./export/xlsx.js?v=32";
+import { listRecords, saveRecord, softDeleteRecord } from "./storage/db.js?v=32";
+import { defaultSettings, sampleFoodEntries, sampleTrainingSessions } from "./sampleData.js?v=32";
 
 const SAMPLE_DATE = "2026-06-04";
 const appRoot = typeof document !== "undefined" ? document.querySelector("#app") : null;
@@ -319,7 +319,7 @@ export function renderApp() {
       date: state.selectedDate,
       trainingSessions: state.trainingSessions
     });
-    import("./muscle-map.js?v=25")
+    import("./muscle-map.js?v=32")
       .then(({ mountMuscleMap }) => {
         if (sequence !== renderSequence || !canvas?.isConnected) return;
         muscleMapCleanup = mountMuscleMap(canvas, {
@@ -361,6 +361,7 @@ function renderOverviewPage() {
   const bandMax = netGoal + (Number(goalBand.max) || 0);
   const selectedFood = recordsForDate(state.foodEntries, state.selectedDate);
   const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate);
+  const muscleStates = buildMuscleRecency({ date: state.selectedDate, trainingSessions: state.trainingSessions });
   const comparison = buildTrainingComparison({
     date: state.selectedDate,
     trainingSessions: state.trainingSessions,
@@ -368,45 +369,70 @@ function renderOverviewPage() {
     preferredMuscleGroup: state.settings.preferredMuscleGroup
   });
   return `
-    <section class="screen">
+    <section class="screen overview-screen">
       ${renderTopbar("Overview 总览", renderSettingsButton())}
       ${renderErrorBanner()}
       ${renderStatusBanner()}
+      <div class="overview-intro">
+        <div><span class="eyebrow">EVERY REP COUNTS</span><h2>记录今天，<span>看见进步。</span></h2></div>
+        <span class="local-badge"><i></i>本机保存</span>
+      </div>
       ${renderDateTools()}
-      ${renderGoalCard(comparison)}
-      <div class="metric-grid">
-        ${metricCard("Calories 热量", `${formatNumber(summary.nutrition.calories)} kcal`, `Goal 目标 ${formatNumber(netGoal)}`)}
-        ${metricCard("Protein 蛋白", `${formatNumber(summary.nutrition.protein)} g`, `Goal 目标 ${formatNumber(state.settings.macroTargets?.protein)}`)}
-        ${metricCard("Net 净热量", `${formatNumber(summary.netCalories)} kcal`, `Band 区间 ${formatNumber(bandMin)}-${formatNumber(bandMax)}`)}
-        ${metricCard("Load 训练量", formatNumber(summary.training.strengthVolume), `${formatNumber(summary.training.durationMinutes)} min`)}
+      <div class="overview-grid">
+        <div class="daily-dashboard">
+          <section class="energy-card">
+            <div class="section-heading"><div><span class="eyebrow">DAILY ENERGY</span><h2>今日能量</h2></div><span class="round-icon">${renderIcon("energy")}</span></div>
+            <div class="energy-gauge" role="img" aria-label="摄入 ${formatNumber(summary.nutrition.calories)} kcal，目标 ${formatNumber(netGoal)} kcal">
+              <svg viewBox="0 0 240 188" aria-hidden="true">
+                <path class="gauge-track" d="M 40 155 A 94 94 0 1 1 200 155" pathLength="100" />
+                <path class="gauge-fill" stroke-opacity="${summary.nutrition.calories > 0 && netGoal > 0 ? 1 : 0}" d="M 40 155 A 94 94 0 1 1 200 155" pathLength="100" stroke-dasharray="${progressPercent(summary.nutrition.calories, netGoal)} 100" />
+              </svg>
+              <div class="gauge-value"><span>热量摄入 · kcal</span><strong>${formatNumber(summary.nutrition.calories)}</strong><small>目标 ${formatNumber(netGoal)} kcal</small></div>
+              <div class="gauge-percent">${targetPercent(summary.nutrition.calories, netGoal)}%<span>目标进度</span></div>
+            </div>
+            <div class="energy-breakdown">
+              <div><span><i class="dot orange"></i>训练消耗</span><strong>${formatNumber(summary.training.calories)}<small>kcal</small></strong></div>
+              <div><span><i class="dot white"></i>净热量</span><strong>${formatNumber(summary.netCalories)}<small>kcal</small></strong></div>
+            </div>
+            <p class="energy-note">目标区间 ${formatNumber(bandMin)}–${formatNumber(bandMax)} kcal · ${escapeHtml(goalBand.label || "每日目标")}</p>
+          </section>
+          <div class="metric-grid">
+            ${metricCard("Protein 蛋白质", `${formatNumber(summary.nutrition.protein)} g`, `每日目标 ${formatNumber(state.settings.macroTargets?.protein)} g`)}
+            ${metricCard("Training 训练容量", formatNumber(summary.training.strengthVolume), `kg × reps · ${formatNumber(summary.training.durationMinutes)} min`)}
+          </div>
+        </div>
+        <section class="muscle-map-section">
+          <div class="section-heading">
+            <div><span class="eyebrow">BODY INSIGHT</span><h2>肌群状态</h2></div>
+            <div class="segmented-control compact" role="group" aria-label="Muscle view 肌群视角">
+              <button type="button" data-muscle-view="front" aria-pressed="${state.muscleView === "front"}">正面</button>
+              <button type="button" data-muscle-view="back" aria-pressed="${state.muscleView === "back"}">背面</button>
+            </div>
+          </div>
+          <div class="muscle-map-stage">
+            <canvas id="muscle-map-canvas" aria-label="Rotatable 3D muscle map 可旋转三维肌群图"></canvas>
+            <p class="muscle-fallback">3D view unavailable 三维视图不可用</p>
+            <span class="body-axis" aria-hidden="true">${state.muscleView === "front" ? "ANTERIOR" : "POSTERIOR"} / 01</span>
+            ${state.muscleView === "back"
+              ? `${renderMuscleCallout("chest", "背部", muscleStates.back)}${renderMuscleCallout("core", "臀部", muscleStates.glutes)}${renderMuscleCallout("quads", "腘绳肌", muscleStates.hamstrings)}`
+              : `${renderMuscleCallout("chest", "胸部", muscleStates.chest)}${renderMuscleCallout("core", "核心", muscleStates.core)}${renderMuscleCallout("quads", "股四头肌", muscleStates.quads)}`}
+            <span class="rotate-hint">${renderIcon("rotate")}拖动旋转 · 360°</span>
+          </div>
+          <div class="muscle-legend" aria-label="Muscle recency legend 肌群训练时间图例">
+            <span><i class="recent"></i>0–1 天</span>
+            <span><i class="warm"></i>2–3 天</span>
+            <span><i class="neutral"></i>4–6 天</span>
+            <span><i class="attention"></i>7 天+ / 未记录</span>
+          </div>
+        </section>
       </div>
       <section class="section-block">
-        <div class="section-heading">
-          <h2>Macros 宏量营养</h2>
-          <span>${escapeHtml(goalBand.label || "goal band")}</span>
-        </div>
+        <div class="section-heading"><div><span class="eyebrow">FUEL YOUR PROGRESS</span><h2>营养进度</h2></div><button class="text-button" type="button" data-tab="food">记录食物 ${renderIcon("arrow")}</button></div>
         <div class="progress-card-grid">
           ${macroKeys.map((key) => renderProgressCard(key, summary.nutrition[key], state.settings.macroTargets?.[key])).join("")}
         </div>
       </section>
-      <section class="muscle-map-section">
-        <div class="section-heading">
-          <h2>Muscle map 肌群图</h2>
-          <div class="segmented-control compact" role="group" aria-label="Muscle view 肌群视角">
-            <button type="button" data-muscle-view="front" aria-pressed="${state.muscleView === "front"}">Front 前</button>
-            <button type="button" data-muscle-view="back" aria-pressed="${state.muscleView === "back"}">Back 后</button>
-          </div>
-        </div>
-        <div class="muscle-map-stage">
-          <canvas id="muscle-map-canvas" aria-label="Rotatable 3D muscle map 可旋转三维肌群图"></canvas>
-          <p class="muscle-fallback">3D view unavailable 三维视图不可用</p>
-          <div class="muscle-legend" aria-label="Muscle recency legend 肌群训练时间图例">
-            <span><i class="recent"></i>0-1d</span>
-            <span><i class="warm"></i>2-3d</span>
-            <span><i class="attention"></i>7d+</span>
-          </div>
-        </div>
-      </section>
+      ${renderGoalCard(comparison)}
       ${renderTrainingComparison(comparison)}
       <details class="overview-details section-block">
         <summary>MIC 微量营养 · Daily targets 每日目标</summary>
@@ -414,29 +440,28 @@ function renderOverviewPage() {
           ${micronutrientKeys.map((key) => renderMicroProgress(key, summary.nutrition[key], state.settings.micronutrientTargets?.[key])).join("")}
         </div>
       </details>
+      <div class="recent-grid">
+        <section class="section-block">
+          <div class="section-heading"><h2>最近食物 <small>FOOD</small></h2><span>${selectedFood.length} 条记录</span></div>
+          ${renderEditableSnippetList(selectedFood, renderFoodSnippet, "foodEntries")}
+        </section>
+        <section class="section-block">
+          <div class="section-heading"><h2>最近训练 <small>TRAINING</small></h2><span>${selectedTraining.length} 条记录</span></div>
+          ${renderEditableSnippetList(selectedTraining, renderTrainingSnippet, "trainingSessions")}
+        </section>
+      </div>
       <section class="section-block">
-        <div class="section-heading">
-          <h2>Recent food 最近食物</h2>
-          <span>${selectedFood.length} 条</span>
-        </div>
-        ${renderEditableSnippetList(selectedFood, renderFoodSnippet, "foodEntries")}
-      </section>
-      <section class="section-block">
-        <div class="section-heading">
-          <h2>Recent training 最近训练</h2>
-          <span>${selectedTraining.length} 条</span>
-        </div>
-        ${renderEditableSnippetList(selectedTraining, renderTrainingSnippet, "trainingSessions")}
-      </section>
-      <section class="section-block">
-        <div class="section-heading">
-          <h2>Week 本周概览</h2>
-          <span>${escapeHtml(weekStart)}</span>
-        </div>
+        <div class="section-heading"><h2>本周净热量 <small>THIS WEEK</small></h2><span>${escapeHtml(weekStart)}</span></div>
         ${renderMiniWeeklyChart(weekly)}
+        <div class="chart-legend weekly-legend"><span><i class="positive"></i>净摄入 ≥ 0</span><span><i class="negative"></i>净摄入 &lt; 0</span></div>
       </section>
     </section>
   `;
+}
+
+function renderMuscleCallout(key, label, recency) {
+  const timing = recency.lastDate ? `${recency.daysAgo} 天前训练` : "暂无训练记录";
+  return `<div class="muscle-callout callout-${key}"><i class="${recency.state}"></i><strong>${label}</strong><span>${timing}</span></div>`;
 }
 
 function renderFoodPage() {
@@ -446,11 +471,13 @@ function renderFoodPage() {
 
   return `
     <section class="screen">
-      ${renderTopbar("Food 食物")}
+      ${renderTopbar("Food 食物", renderSettingsButton())}
+      ${renderPageIntro("DAILY NUTRITION", "为训练，补充能量。", "记录每一餐，了解每日营养摄入。", "food")}
       ${renderErrorBanner()}
       ${renderDateTools()}
       <form class="entry-form" data-form="food" ${recordIdAttribute(editingEntry)}>
-        ${editingEntry ? '<div class="form-heading"><h2>Edit food 编辑食物</h2></div>' : ""}
+        ${editingEntry ? '<div class="form-heading"><h2>Edit food 编辑食物</h2></div>' : '<div class="form-heading"><h2>添加食物</h2><span>NEW ENTRY</span></div>'}
+        <p class="form-help">营养数值按每 100 g 填写，将根据食用克数计算摄入。</p>
         <div class="form-grid">
           ${inputField("DATE 日期", "date", "date", values.date)}
           ${selectField("MEAL 餐次", "meal", mealOptions, values.meal)}
@@ -509,7 +536,8 @@ function renderTrainingPage() {
 
   return `
     <section class="screen">
-      ${renderTopbar("Training 训练")}
+      ${renderTopbar("Training 训练", renderSettingsButton())}
+      ${renderPageIntro("TRAINING LOG", "专注每一次发力。", "力量与户外，每一次训练都有记录。", "training")}
       ${renderErrorBanner()}
       ${renderDateTools()}
       <div class="segmented-control training-mode" role="group" aria-label="Training mode 训练模式">
@@ -608,7 +636,8 @@ function renderReportsPage() {
 
   return `
     <section class="screen">
-      ${renderTopbar("Reports 报告", `${renderSettingsButton()}<button class="ghost-button" type="button" data-action="download-xlsx">Excel</button>`)}
+      ${renderTopbar("Reports 报告", `${renderSettingsButton()}<button class="ghost-button export-button" type="button" data-action="download-xlsx">${renderIcon("download")} Excel</button>`)}
+      ${renderPageIntro("YOUR WEEK IN REVIEW", "进步，有迹可循。", "每周训练与营养，一览你的投入。", "reports")}
       ${renderErrorBanner()}
       ${renderStatusBanner()}
       ${renderDateTools()}
@@ -708,6 +737,7 @@ function renderSettingsPage() {
     <section class="screen">
       ${renderTopbar("Settings 设置", '<button class="icon-button" type="button" data-tab="overview" aria-label="Close settings" title="Close settings">&times;</button>')}
       ${renderErrorBanner()}
+      ${renderPageIntro("MAKE IT YOURS", "按你的节奏来。", "设定目标，让每一天更有方向。", "settings")}
       <form class="entry-form settings-form" data-form="settings">
         <section class="settings-section">
           <div class="form-heading"><h2>Personal 基础</h2></div>
@@ -759,51 +789,49 @@ function renderSettingsPage() {
 function renderTabs() {
   return `
     <nav class="bottom-tabs" aria-label="Primary">
-      ${tabs
-        .map(
-          (tab) => `
-            <button type="button" data-tab="${tab.id}" aria-current="${state.activeTab === tab.id ? "page" : "false"}">
-              ${escapeHtml(tab.label)}
-            </button>
-          `
-        )
-        .join("")}
+      ${tabs.map((tab) => `
+        <button type="button" data-tab="${tab.id}" aria-label="${escapeHtml(tab.label)}" aria-current="${state.activeTab === tab.id ? "page" : "false"}">
+          ${renderIcon(tab.id)}<span>${escapeHtml(tab.label.split(" ")[1])}</span>
+        </button>
+      `).join("")}
     </nav>
   `;
 }
 
 function renderTopbar(title, action = "") {
-  const className = title.startsWith("Reports") ? "topbar reports-topbar" : "topbar";
+  const [english, chinese] = title.split(" ");
   return `
-    <header class="${className}">
-      <h1>${escapeHtml(title)}${renderOracleGlyph(title)}</h1>
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">${renderIcon("training")}</div>
+      <h1>${escapeHtml(chinese)}<small>${escapeHtml(english)}<span class="version-label">V3</span></small></h1>
       <div class="topbar-actions">${action}</div>
     </header>
   `;
 }
 
-function renderOracleGlyph(title) {
-  const key = title.startsWith("Overview")
-    ? "overview"
-    : title.startsWith("Food")
-      ? "food"
-      : title.startsWith("Training")
-        ? "training"
-        : title.startsWith("Reports")
-          ? "reports"
-          : "";
+function renderPageIntro(eyebrow, title, description, icon) {
+  return `<div class="page-intro"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${description}</p></div><span class="page-intro-icon" aria-hidden="true">${renderIcon(icon)}</span></div>`;
+}
+
+function renderIcon(name) {
   const paths = {
-    overview: '<path d="M4 12c4-7 12-7 16 0-4 7-12 7-16 0Z"/><circle cx="12" cy="12" r="2.5"/>',
-    food: '<path d="M6 9c3-4 9-4 12 0M8 10l1 9h6l1-9M7 14h10M10 5c1-2 3-2 4 0"/>',
-    training: '<path d="M9 10 7 3M15 10l2-7M10 9 3 7M14 15l3 6M10 15 7-3M7 17l3-2M9 10 3 3 3-3"/>',
-    reports: '<path d="M6 4v16M10 3v18M14 3v18M18 4v16M5 8h14M5 16h14"/>'
+    overview: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M14 17.5h7m-3.5-3.5v7"/>',
+    food: '<path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M19 21V3c-4 2-5 6-4 10h4"/>',
+    training: '<path d="m6.5 6.5 11 11M4 9 9 4m6 16 5-5M2.5 7.5l5-5m9 19 5-5"/>',
+    reports: '<path d="M4 4v16h16M8 15v-4m5 4V7m5 8v-6"/>',
+    settings: '<path d="m9 3-.5 2-2 1L4.5 5.5l-2 3.5L4 10.5v3L2.5 15l2 3.5 2-.5 2 1 .5 2h6l.5-2 2-1 2 .5 2-3.5-1.5-1.5v-3L21.5 9l-2-3.5-2 .5-2-1-.5-2Z"/><circle cx="12" cy="12" r="3"/>',
+    energy: '<path d="m13 2-8 12h6l-1 8 9-13h-6l1-7Z"/>',
+    arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+    download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+    calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-14 4h3"/>',
+    rotate: '<path d="M20 8a8 8 0 0 0-14-2L3 9m0-6v6h6M4 16a8 8 0 0 0 14 2l3-3m0 6v-6h-6"/>',
+    chevron: '<path d="m9 5 7 7-7 7"/>'
   };
-  if (!paths[key]) return "";
-  return `<svg class="oracle-glyph oracle-${key}" viewBox="0 0 24 24" aria-hidden="true">${paths[key]}</svg>`;
+  return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.overview}</svg>`;
 }
 
 function renderSettingsButton() {
-  return '<button class="icon-button" type="button" data-tab="settings" aria-label="Settings 设置" title="Settings 设置">&#9881;</button>';
+  return `<button class="icon-button" type="button" data-tab="settings" aria-label="Settings 设置" title="Settings 设置">${renderIcon("settings")}</button>`;
 }
 
 function renderErrorBanner() {
@@ -819,12 +847,9 @@ function renderStatusBanner() {
 function renderDateTools() {
   return `
     <div class="date-tools">
-      <button type="button" class="icon-button" data-date-shift="-1" aria-label="Previous day 前一天">&lt;</button>
-      <label>
-        <span>DATE 日期</span>
-        <input type="date" value="${escapeHtml(state.selectedDate)}" data-date-input />
-      </label>
-      <button type="button" class="icon-button" data-date-shift="1" aria-label="Next day 后一天">&gt;</button>
+      <button type="button" class="icon-button previous-day" data-date-shift="-1" aria-label="Previous day 前一天">${renderIcon("chevron")}</button>
+      <label>${renderIcon("calendar")}<span class="visually-hidden">DATE 日期</span><input type="date" value="${escapeHtml(state.selectedDate)}" data-date-input /></label>
+      <button type="button" class="icon-button" data-date-shift="1" aria-label="Next day 后一天">${renderIcon("chevron")}</button>
     </div>
   `;
 }
@@ -840,14 +865,14 @@ function metricCard(label, value, hint) {
 }
 
 function renderProgressCard(key, value, target) {
-  const percent = progressPercent(value, target);
+  const percent = targetPercent(value, target);
   return `
-    <article class="progress-card">
-      <div>
-        <span>${escapeHtml(nutrientLabels[key] || key)}</span>
-        <strong>${formatNumber(value)} / ${formatNumber(target)} ${escapeHtml(nutrientUnits[key] || "")}</strong>
+    <article class="progress-card nutrient-${key}">
+      <div class="macro-ring" role="img" aria-label="${escapeHtml(nutrientLabels[key])}目标进度 ${percent}%">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="ring-track" cx="32" cy="32" r="27"/><circle class="ring-fill" stroke-opacity="${percent > 0 ? 1 : 0}" cx="32" cy="32" r="27" pathLength="100" stroke-dasharray="${Math.min(100, percent)} 100"/></svg>
+        <b>${percent}<small>%</small></b>
       </div>
-      ${progressBar(percent)}
+      <div><span>${escapeHtml(nutrientLabels[key] || key)}</span><strong>${formatNumber(value)}<small> / ${formatNumber(target)} ${escapeHtml(nutrientUnits[key] || "")}</small></strong></div>
     </article>
   `;
 }
@@ -876,10 +901,11 @@ function renderGoalCard(comparison) {
   return `
     <section class="goal-card">
       <div class="goal-primary">
-        <span>GOAL 今日目标</span>
+        <span>YOUR NEXT MILESTONE · 今日目标</span>
         <strong>${escapeHtml(exercise)}</strong>
         <small>${escapeHtml(muscle)} · ${weightGoal ? `${formatNumber(weightGoal)} kg` : "Weight 待设置"}</small>
       </div>
+      <button class="goal-edit icon-button" type="button" data-tab="settings" aria-label="编辑训练目标">${renderIcon("arrow")}</button>
       <div class="goal-notes">
         <p><b>BEST 最佳动作</b>${escapeHtml(state.settings.bestExerciseNote || "-")}</p>
         <p><b>MEMO 个人备注</b>${escapeHtml(state.settings.personalMemo || "-")}</p>
@@ -965,8 +991,8 @@ function renderMiniWeeklyChart(report) {
           const height = Math.max(8, Math.round((Math.abs(day.netCalories) / max) * 96));
           const tone = day.netCalories >= 0 ? "positive" : "negative";
           return `
-            <div class="mini-day">
-              <span class="mini-bar ${tone}" style="height: ${height}px"></span>
+            <div class="mini-day" title="${escapeHtml(day.date)}: ${formatNumber(day.netCalories)} kcal">
+              <span class="mini-bar ${tone}" style="height: ${height}px" aria-label="${escapeHtml(day.date)}: ${formatNumber(day.netCalories)} kcal"></span>
               <small>${escapeHtml(day.date.slice(5))}</small>
             </div>
           `;
@@ -1457,6 +1483,7 @@ async function handleSubmit(event) {
 
     state.errorMessage = null;
     renderApp();
+    if (formType === "settings" && typeof window !== "undefined") window.scrollTo(0, 0);
   } catch (error) {
     console.warn("Record save failed.", error);
     state.errorMessage = "Could not save the record. Please try again.";
@@ -1476,6 +1503,7 @@ async function handleClick(event) {
   if (tabButton) {
     state.activeTab = tabButton.dataset.tab;
     renderApp();
+    if (typeof window !== "undefined") window.scrollTo(0, 0);
     return;
   }
 
@@ -1587,6 +1615,7 @@ async function handleClick(event) {
       state.trainingMode = isStrengthSession(record) ? "strength" : "activity";
     }
     renderApp();
+    if (typeof window !== "undefined") window.scrollTo(0, 0);
     return;
   }
 
@@ -1819,6 +1848,11 @@ function trainingSessionMeta(session) {
     return `${sets.length} sets - ${formatNumber(volume)} kg x reps - ${formatNumber(session.durationMinutes)} min`;
   }
   return `${formatNumber(session.durationMinutes)} min - ${formatNumber(session.distanceKm)} km`;
+}
+
+function targetPercent(value, target) {
+  const safeTarget = Number(target) || 0;
+  return safeTarget > 0 ? Math.max(0, Math.round(((Number(value) || 0) / safeTarget) * 100)) : 0;
 }
 
 function progressPercent(value, target) {
