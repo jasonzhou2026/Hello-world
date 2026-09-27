@@ -381,25 +381,24 @@ function renderOverviewPage() {
       <div class="overview-grid">
         <div class="daily-dashboard">
           <section class="energy-card">
-            <div class="section-heading"><div><span class="eyebrow">DAILY ENERGY</span><h2>今日能量</h2></div><span class="round-icon">${renderIcon("energy")}</span></div>
-            <div class="energy-gauge" role="img" aria-label="摄入 ${formatNumber(summary.nutrition.calories)} kcal，目标 ${formatNumber(netGoal)} kcal">
-              <svg viewBox="0 0 240 188" aria-hidden="true">
-                <path class="gauge-track" d="M 40 155 A 94 94 0 1 1 200 155" pathLength="100" />
-                <path class="gauge-fill" stroke-opacity="${summary.nutrition.calories > 0 && netGoal > 0 ? 1 : 0}" d="M 40 155 A 94 94 0 1 1 200 155" pathLength="100" stroke-dasharray="${progressPercent(summary.nutrition.calories, netGoal)} 100" />
-              </svg>
-              <div class="gauge-value"><span>热量摄入 · kcal</span><strong>${formatNumber(summary.nutrition.calories)}</strong><small>目标 ${formatNumber(netGoal)} kcal</small></div>
-              <div class="gauge-percent">${targetPercent(summary.nutrition.calories, netGoal)}%<span>目标进度</span></div>
+            <div class="section-heading"><div><span class="eyebrow">DAILY ENERGY</span><h2>今日能量</h2></div></div>
+            <div class="energy-readout">
+              <span>目标进度</span>
+              <strong class="dot-number">${targetPercent(summary.nutrition.calories, netGoal)}<small>%</small></strong>
+              <p>摄入 <b>${formatNumber(summary.nutrition.calories)}</b> kcal</p>
+              ${progressBar(progressPercent(summary.nutrition.calories, netGoal))}
+              <small>目标 ${formatNumber(netGoal)} kcal</small>
             </div>
             <div class="energy-breakdown">
               <div><span><i class="dot orange"></i>训练消耗</span><strong>${formatNumber(summary.training.calories)}<small>kcal</small></strong></div>
               <div><span><i class="dot white"></i>净热量</span><strong>${formatNumber(summary.netCalories)}<small>kcal</small></strong></div>
             </div>
-            <p class="energy-note">目标区间 ${formatNumber(bandMin)}–${formatNumber(bandMax)} kcal · ${escapeHtml(goalBand.label || "每日目标")}</p>
           </section>
           <div class="metric-grid">
             ${metricCard("Protein 蛋白质", `${formatNumber(summary.nutrition.protein)} g`, `每日目标 ${formatNumber(state.settings.macroTargets?.protein)} g`)}
             ${metricCard("Training 训练容量", formatNumber(summary.training.strengthVolume), `kg × reps · ${formatNumber(summary.training.durationMinutes)} min`)}
           </div>
+          <p class="energy-note">目标区间 ${formatNumber(bandMin)}–${formatNumber(bandMax)} kcal · ${escapeHtml(goalBand.label || "每日目标")}</p>
         </div>
         <section class="muscle-map-section">
           <div class="section-heading">
@@ -820,7 +819,6 @@ function renderIcon(name) {
     training: '<path d="m6.5 6.5 11 11M4 9 9 4m6 16 5-5M2.5 7.5l5-5m9 19 5-5"/>',
     reports: '<path d="M4 4v16h16M8 15v-4m5 4V7m5 8v-6"/>',
     settings: '<path d="m9 3-.5 2-2 1L4.5 5.5l-2 3.5L4 10.5v3L2.5 15l2 3.5 2-.5 2 1 .5 2h6l.5-2 2-1 2 .5 2-3.5-1.5-1.5v-3L21.5 9l-2-3.5-2 .5-2-1-.5-2Z"/><circle cx="12" cy="12" r="3"/>',
-    energy: '<path d="m13 2-8 12h6l-1 8 9-13h-6l1-7Z"/>',
     arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
     download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-14 4h3"/>',

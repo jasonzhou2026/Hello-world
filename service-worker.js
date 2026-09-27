@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "fitness-tracker-pwa-";
-const CACHE_NAME = "fitness-tracker-pwa-v37";
+const CACHE_NAME = "fitness-tracker-pwa-v41";
 const APP_ASSETS = [
   "./",
   "./assets/icon.svg",
@@ -9,8 +9,8 @@ const APP_ASSETS = [
   "./assets/icon-maskable-512.png",
   "./index.html",
   "./manifest.webmanifest",
-  "./src/styles.css?v=37",
-  "./src/app.js?v=32",
+  "./src/styles.css?v=40",
+  "./src/app.js?v=40",
   "./src/muscle-map.js?v=32",
   "./src/domain/backup.js?v=32",
   "./src/domain/nutrition.js?v=32",
