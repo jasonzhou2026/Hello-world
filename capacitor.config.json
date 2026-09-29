@@ -1,0 +1,9 @@
+{
+  "appId": "com.jasonzhou.fitnesstracker",
+  "appName": "训练与营养记录",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#09090b"
+  }
+}

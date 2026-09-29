@@ -177,6 +177,8 @@ textarea {
   place-items: center;
   flex: 0 0 auto;
   width: 44px;
+  height: 44px;
+  padding: 0;
   border: 1px solid var(--color-border);
   color: var(--color-text);
   background: rgba(255, 255, 255, 0.04);
@@ -1328,6 +1330,7 @@ textarea {
 
 
 .ui-icon {
+  display: block;
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
@@ -1356,8 +1359,9 @@ select option { color: var(--color-text); background: #191c22; }
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 43px;
-  height: 43px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgba(248, 235, 98, 0.25);
   border-radius: 14px;
   color: #f3e849;
@@ -1393,7 +1397,7 @@ select option { color: var(--color-text); background: #191c22; }
 .overview-intro h2 span { color: #b8a9cb; }
 .local-badge { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; color: #a7aca5; font-size: 0.62rem; }
 .local-badge i { width: 5px; height: 5px; border-radius: 50%; background: #e8dd56; box-shadow: 0 0 8px rgba(232, 221, 86, 0.2); }
-.date-tools .icon-button { min-height: 38px; width: 42px; border: 0; background: transparent; }
+.date-tools .icon-button { min-height: 38px; height: 38px; width: 42px; border: 0; background: transparent; }
 .previous-day .ui-icon { transform: rotate(180deg); }
 .date-tools label > .ui-icon { color: #bdb5ca; width: 17px; height: 17px; }
 .date-tools input { width: 154px; min-height: 38px; padding: 6px 0; border: 0; background: transparent; font-size: 0.86rem; text-align: center; }
@@ -1488,9 +1492,11 @@ select option { color: var(--color-text); background: #191c22; }
 .page-intro p { margin-bottom: 0; font-size: 0.74rem; }
 .page-intro-icon { display: grid; place-items: center; flex: 0 0 auto; width: 66px; height: 66px; border: 1px solid rgba(213, 187, 240, 0.25); border-radius: 22px; color: #fff1ff; background: var(--gradient-orchid); box-shadow: var(--glass-edge); transform: rotate(-6deg); }
 .page-intro-icon .ui-icon { width: 29px; height: 29px; }
+.topbar .brand-mark.page-intro-icon { width: 44px; height: 44px; border-radius: 15px; }
+.topbar .brand-mark .ui-icon { width: 24px; height: 24px; }
 .form-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .form-heading > span { color: #bcb0cc; font-size: 0.6rem; letter-spacing: 1.3px; }
-.screen .form-help { margin: -7px 0 0; color: #b8b0c4; font-size: 0.7rem; }
+.screen .form-help, .entry-dialog .form-help { margin: -7px 0 0; color: #b8b0c4; font-size: 0.7rem; line-height: 1.55; }
 .entry-form label > span, .cleanup-range-fields label span { font-weight: 400; font-size: 0.71rem; }
 .exercise-entry[data-hand-mode="split"] .split-weight-fields { gap: 5px; }
 .entry-form[data-form="strength"] { padding: 20px 14px; }
@@ -1510,8 +1516,26 @@ select option { color: var(--color-text); background: #191c22; }
 .chart-card .section-heading { align-items: start; flex-wrap: wrap; gap: 3px; }
 .chart-card .section-heading > span { font-size: 0.62rem; font-weight: 400; }
 .chart-card .report-svg { border-radius: 8px; background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px); background-size: 100% 47px; }
+.reports-grid .report-svg { height: 140px; margin-top: 10px; background-size: 100% 35px; }
+.reports-grid .chart-card .section-heading { margin-bottom: 10px; }
 .data-management { padding: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: rgba(255, 255, 255, 0.015); }
 .cleanup-summary > div > strong { display: block; margin-bottom: 5px; font-size: 0.85rem; font-weight: 500; }
+
+.entry-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 24px 0; }
+.entry-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.report-export-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.report-export-actions > .ghost-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 100px; text-decoration: none; }
+.duration-section { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border: 0.5px solid var(--color-border); border-radius: var(--radius-card); background: var(--glass-haze), var(--color-surface); }
+.duration-section .section-heading { margin-bottom: 8px; }
+.duration-section p { margin-bottom: 0; }
+.entry-dialog { width: min(680px, calc(100% - 24px)); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); margin: auto; padding: 16px; overflow: auto; overscroll-behavior: contain; border: 0.5px solid rgba(226, 222, 247, 0.24); border-radius: 28px; color: var(--color-text); background: #17151d; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55); }
+.entry-dialog::backdrop { background: rgba(3, 3, 7, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.dialog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.dialog-toolbar h2 { margin: 0; font-size: 1.05rem; font-weight: 500; }
+.dialog-toolbar .icon-button { margin-left: auto; font-size: 1.4rem; }
+.entry-dialog .entry-form, .entry-dialog .data-management { margin: 0; }
+.entry-dialog .exercise-stack { grid-template-columns: minmax(0, 1fr); }
+body:has(.entry-dialog[open]) { overflow: hidden; }
 
 @media (hover: hover) {
   .ghost-button:hover, .icon-button:hover, .bottom-tabs button:not([aria-current="page"]):hover { background: rgba(255, 255, 255, 0.08); }
@@ -1578,6 +1602,7 @@ select option { color: var(--color-text); background: #191c22; }
 .energy-card, .metric-card, .progress-card, .micro-row, .chart-card,
 .entry-form, .goal-card, .muscle-map-section, .bottom-tabs {
   isolation: isolate;
+  border-width: 0.5px;
   backdrop-filter: blur(24px) saturate(115%);
   -webkit-backdrop-filter: blur(24px) saturate(115%);
 }
@@ -1588,7 +1613,7 @@ select option { color: var(--color-text); background: #191c22; }
   position: absolute;
   inset: 0;
   z-index: -1;
-  padding: 1px;
+  padding: 0.5px;
   border-radius: inherit;
   background: linear-gradient(135deg, rgba(250, 242, 255, 0.35), rgba(231, 215, 253, 0.06) 25%, transparent 46%, rgba(187, 169, 228, 0.08) 70%, rgba(226, 213, 255, 0.23));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -1638,4 +1663,9 @@ select option { color: var(--color-text); background: #191c22; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .entry-form, .goal-card, .bottom-tabs { background-color: #24222b; }
+}
+
+@media (max-width: 560px) {
+  .report-export-actions > .ghost-button { padding: 10px 6px; gap: 4px; font-size: 0.8rem; white-space: nowrap; }
+  .report-export-actions > .ghost-button .ui-icon { width: 16px; height: 16px; }
 }

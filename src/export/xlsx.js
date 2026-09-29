@@ -1,6 +1,6 @@
 import { calculateFoodEntryNutrition, NUTRIENT_KEYS } from "../domain/nutrition.js";
-import { buildWeeklyReport } from "../domain/reports.js";
-import { calculateStrengthVolume, calculateTrainingCalories } from "../domain/training.js";
+import { buildWeeklyReport } from "../domain/reports.js?v=44";
+import { calculateStrengthVolume, calculateTrainingCalories, getDailyDurationRecord } from "../domain/training.js?v=44";
 
 export const XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const ZIP_UTF8_FLAG = 0x0800;
@@ -30,6 +30,8 @@ export const NUTRIENT_EXCEL_HEADERS = Object.freeze(
 
 export function buildExportRows({ foodEntries = [], trainingSessions = [], weekStart }) {
   const report = buildWeeklyReport({ weekStart, foodEntries, trainingSessions });
+  const durationDates = new Set(trainingSessions.filter((session) => session.category === "duration").map((session) => session.date));
+  const dailyDurations = new Map([...durationDates].map((date) => [date, getDailyDurationRecord(trainingSessions, date)]));
 
   return {
     "Daily Summary": [
@@ -90,7 +92,7 @@ export function buildExportRows({ foodEntries = [], trainingSessions = [], weekS
         "Estimated Calories",
         "Notes"
       ],
-      ...trainingSessions.flatMap((session) => trainingDetailRows(session))
+      ...trainingSessions.flatMap((session) => trainingDetailRows(session, dailyDurations.get(session.date)))
     ],
     "Nutrition Stats": [
       ["Date", ...NUTRIENT_EXCEL_HEADERS],
@@ -131,15 +133,19 @@ export function createWorkbookBuffer(sheets) {
   return bytes;
 }
 
-function trainingDetailRows(session) {
+function trainingDetailRows(session, dailyDuration) {
+  if (session.category === "duration" && session !== dailyDuration) return [];
   const category = session.category || session.activityType || "";
   const activity = session.activityType || session.category || "";
   const exercises = session.exercises || [];
-  const estimatedCalories = calculateTrainingCalories(session);
-  const isStrength = category === "strength" || activity === "strength";
+  const overridden = dailyDuration && session !== dailyDuration;
+  const duration = overridden ? "" : presentValue(session.durationMinutes);
+  const estimatedCalories = overridden ? "" : calculateTrainingCalories(session);
+  const isStrength = category !== "duration" && (category === "strength" || activity === "strength" || exercises.length > 0);
+  const notes = [session.notes, overridden ? "时长与消耗以当天总时长为准，本行不重复累计。" : ""].filter(Boolean).join(" ");
 
   if (isStrength && exercises.length > 0) {
-    return exercises.map((exercise) => {
+    return exercises.map((exercise, index) => {
       const sets = exercise.sets || [];
       const reps = sets.reduce((total, set) => total + (Number(set.reps) || 0), 0);
       const maxWeight = sets.reduce((max, set) => Math.max(max, Number(set.weight) || 0), 0);
@@ -151,12 +157,12 @@ function trainingDetailRows(session) {
         sets.length,
         reps,
         presentValue(maxWeight),
-        presentValue(session.durationMinutes),
-        presentValue(session.distanceKm),
+        index === 0 ? duration : "",
+        index === 0 ? presentValue(session.distanceKm) : "",
         session.intensity || "",
         calculateStrengthVolume(sets),
-        estimatedCalories,
-        session.notes || ""
+        index === 0 ? estimatedCalories : "",
+        !overridden && exercises.length > 1 ? `${notes}${notes ? " " : ""}本次时长与消耗仅在首个动作列示。` : notes
       ];
     });
   }
@@ -165,17 +171,17 @@ function trainingDetailRows(session) {
     [
       session.date,
       category,
-      session.name || activity,
+      category === "duration" ? "当天总时长" : session.name || activity,
       "",
       "",
       "",
       "",
-      presentValue(session.durationMinutes),
-      presentValue(session.distanceKm),
+      duration,
+      category === "duration" ? "" : presentValue(session.distanceKm),
       session.intensity || "",
       0,
       estimatedCalories,
-      session.notes || ""
+      notes
     ]
   ];
 }

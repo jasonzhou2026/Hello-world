@@ -1,8 +1,10 @@
-import { buildDailySummary, buildWeeklyReport } from "./domain/reports.js?v=32";
+import { buildDailySummary, buildWeeklyReport } from "./domain/reports.js?v=44";
+import { getDailyDurationRecord } from "./domain/training.js?v=44";
 import { addDays } from "./domain/nutrition.js?v=32";
-import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=32";
+import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=46";
 import { buildMuscleRecency, buildTrainingComparison } from "./domain/overview.js?v=32";
-import { buildExportRows, createWorkbookBlobParts, XLSX_MIME_TYPE } from "./export/xlsx.js?v=32";
+import { buildExportRows, createWorkbookBlobParts, XLSX_MIME_TYPE } from "./export/xlsx.js?v=44";
+import { createReportPdfBuffer, createReportDocxBuffer, PDF_MIME_TYPE, DOCX_MIME_TYPE } from "./export/reports.js?v=44";
 import { listRecords, saveRecord, softDeleteRecord } from "./storage/db.js?v=32";
 import { defaultSettings, sampleFoodEntries, sampleTrainingSessions } from "./sampleData.js?v=32";
 
@@ -25,6 +27,7 @@ export const state = {
   editingTrainingId: null,
   pendingCleanupRange: null,
   trainingMode: "strength",
+  activeDialog: null,
   muscleView: "front"
 };
 
@@ -274,7 +277,7 @@ export async function loadApp() {
   const settingsResolution = resolveDefaultSettingsRecord(settingsRecords);
   let settings = settingsResolution.settings;
   if (settingsResolution.shouldCreateDefault) {
-    settings = await storageAdapters.saveRecord("settings", { id: "default", ...deepClone(defaultSettings) });
+    settings = await storageAdapters.saveRecord("settings", { id: "default", ...deepClone(defaultSettings), samplesSeeded: typeof window !== "undefined" && Boolean(window.Capacitor?.isNativePlatform?.()) });
   }
 
   if (shouldSeedSamples({ foodEntries, trainingSessions, settings })) {
@@ -310,8 +313,15 @@ export function renderApp() {
     <div class="app-view">
       ${renderActiveTab()}
       ${renderTabs()}
+      ${renderActiveDialog()}
     </div>
   `;
+
+  const dialog = appRoot.querySelector(".entry-dialog");
+  if (dialog) {
+    dialog.showModal();
+    dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeEntryDialog(); });
+  }
 
   if (state.activeTab === "overview") {
     const canvas = appRoot.querySelector("#muscle-map-canvas");
@@ -349,39 +359,23 @@ function renderOverviewPage() {
     foodEntries: state.foodEntries,
     trainingSessions: state.trainingSessions
   });
-  const weekStart = getWeekStart(state.selectedDate);
-  const weekly = buildWeeklyReport({
-    weekStart,
-    foodEntries: state.foodEntries,
-    trainingSessions: state.trainingSessions
-  });
   const goalBand = state.settings.calorieGoalBand || { min: 0, max: 0, label: "goal" };
   const netGoal = Number(state.settings.calorieGoal) || 0;
   const bandMin = netGoal + (Number(goalBand.min) || 0);
   const bandMax = netGoal + (Number(goalBand.max) || 0);
   const selectedFood = recordsForDate(state.foodEntries, state.selectedDate);
-  const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate);
+  const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate).filter((session) => session.category !== "duration");
   const muscleStates = buildMuscleRecency({ date: state.selectedDate, trainingSessions: state.trainingSessions });
-  const comparison = buildTrainingComparison({
-    date: state.selectedDate,
-    trainingSessions: state.trainingSessions,
-    preferredExercise: state.settings.preferredExercise,
-    preferredMuscleGroup: state.settings.preferredMuscleGroup
-  });
   return `
     <section class="screen overview-screen">
       ${renderTopbar("Overview 总览", renderSettingsButton())}
       ${renderErrorBanner()}
       ${renderStatusBanner()}
-      <div class="overview-intro">
-        <div><span class="eyebrow">EVERY REP COUNTS</span><h2>记录今天，<span>看见进步。</span></h2></div>
-        <span class="local-badge"><i></i>本机保存</span>
-      </div>
       ${renderDateTools()}
       <div class="overview-grid">
         <div class="daily-dashboard">
           <section class="energy-card">
-            <div class="section-heading"><div><span class="eyebrow">DAILY ENERGY</span><h2>今日能量</h2></div></div>
+            <div class="section-heading"><div><h2>今日能量</h2></div></div>
             <div class="energy-readout">
               <span>目标进度</span>
               <strong class="dot-number">${targetPercent(summary.nutrition.calories, netGoal)}<small>%</small></strong>
@@ -402,7 +396,7 @@ function renderOverviewPage() {
         </div>
         <section class="muscle-map-section">
           <div class="section-heading">
-            <div><span class="eyebrow">BODY INSIGHT</span><h2>肌群状态</h2></div>
+            <div><h2>肌群状态</h2></div>
             <div class="segmented-control compact" role="group" aria-label="Muscle view 肌群视角">
               <button type="button" data-muscle-view="front" aria-pressed="${state.muscleView === "front"}">正面</button>
               <button type="button" data-muscle-view="back" aria-pressed="${state.muscleView === "back"}">背面</button>
@@ -425,20 +419,6 @@ function renderOverviewPage() {
           </div>
         </section>
       </div>
-      <section class="section-block">
-        <div class="section-heading"><div><span class="eyebrow">FUEL YOUR PROGRESS</span><h2>营养进度</h2></div><button class="text-button" type="button" data-tab="food">记录食物 ${renderIcon("arrow")}</button></div>
-        <div class="progress-card-grid">
-          ${macroKeys.map((key) => renderProgressCard(key, summary.nutrition[key], state.settings.macroTargets?.[key])).join("")}
-        </div>
-      </section>
-      ${renderGoalCard(comparison)}
-      ${renderTrainingComparison(comparison)}
-      <details class="overview-details section-block">
-        <summary>MIC 微量营养 · Daily targets 每日目标</summary>
-        <div class="micro-grid">
-          ${micronutrientKeys.map((key) => renderMicroProgress(key, summary.nutrition[key], state.settings.micronutrientTargets?.[key])).join("")}
-        </div>
-      </details>
       <div class="recent-grid">
         <section class="section-block">
           <div class="section-heading"><h2>最近食物 <small>FOOD</small></h2><span>${selectedFood.length} 条记录</span></div>
@@ -449,11 +429,6 @@ function renderOverviewPage() {
           ${renderEditableSnippetList(selectedTraining, renderTrainingSnippet, "trainingSessions")}
         </section>
       </div>
-      <section class="section-block">
-        <div class="section-heading"><h2>本周净热量 <small>THIS WEEK</small></h2><span>${escapeHtml(weekStart)}</span></div>
-        ${renderMiniWeeklyChart(weekly)}
-        <div class="chart-legend weekly-legend"><span><i class="positive"></i>净摄入 ≥ 0</span><span><i class="negative"></i>净摄入 &lt; 0</span></div>
-      </section>
     </section>
   `;
 }
@@ -465,17 +440,39 @@ function renderMuscleCallout(key, label, recency) {
 
 function renderFoodPage() {
   const selectedFood = recordsForDate(state.foodEntries, state.selectedDate);
-  const editingEntry = state.foodEntries.find((entry) => entry.id === state.editingFoodId) || null;
-  const values = foodEntryFormValues(editingEntry, state.selectedDate);
-
+  const summary = buildDailySummary({ date: state.selectedDate, foodEntries: state.foodEntries, trainingSessions: state.trainingSessions });
   return `
     <section class="screen">
       ${renderTopbar("Food 食物", renderSettingsButton())}
-      ${renderPageIntro("DAILY NUTRITION", "为训练，补充能量。", "记录每一餐，了解每日营养摄入。", "food")}
       ${renderErrorBanner()}
+      ${renderStatusBanner()}
       ${renderDateTools()}
+      <section class="section-block">
+        <div class="section-heading"><h2>营养进度</h2></div>
+        <div class="progress-card-grid">
+          ${macroKeys.map((key) => renderProgressCard(key, summary.nutrition[key], state.settings.macroTargets?.[key])).join("")}
+        </div>
+      </section>
+      <details class="overview-details section-block">
+        <summary>微量营养 · 每日目标</summary>
+        <div class="micro-grid">
+          ${micronutrientKeys.map((key) => renderMicroProgress(key, summary.nutrition[key], state.settings.micronutrientTargets?.[key])).join("")}
+        </div>
+      </details>
+      <div class="entry-actions"><button class="primary-button" type="button" data-open-dialog="food">添加食物</button></div>
+      <ul class="record-list">
+        ${selectedFood.length ? selectedFood.map(renderFoodListItem).join("") : emptyState("暂无食物记录")}
+      </ul>
+    </section>
+  `;
+}
+
+function renderFoodForm() {
+  const editingEntry = state.foodEntries.find((entry) => entry.id === state.editingFoodId) || null;
+  const values = foodEntryFormValues(editingEntry, state.selectedDate);
+  return `
       <form class="entry-form" data-form="food" ${recordIdAttribute(editingEntry)}>
-        ${editingEntry ? '<div class="form-heading"><h2>Edit food 编辑食物</h2></div>' : '<div class="form-heading"><h2>添加食物</h2><span>NEW ENTRY</span></div>'}
+        ${editingEntry ? '<div class="form-heading"><h2>Edit food 编辑食物</h2></div>' : '<div class="form-heading"><h2>添加食物</h2></div>'}
         <p class="form-help">营养数值按每 100 g 填写，将根据食用克数计算摄入。</p>
         <div class="form-grid">
           ${inputField("DATE 日期", "date", "date", values.date)}
@@ -517,55 +514,75 @@ function renderFoodPage() {
         </div>
         ${renderFormActions("foodEntries", editingEntry, "Add food 添加食物", "Save food 保存食物")}
       </form>
-      <ul class="record-list">
-        ${selectedFood.length ? selectedFood.map(renderFoodListItem).join("") : emptyState("No food entries. 暂无食物记录")}
-      </ul>
-    </section>
   `;
 }
 
 function renderTrainingPage() {
-  const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate);
-  const editingSession = state.trainingSessions.find((session) => session.id === state.editingTrainingId) || null;
-  const editingStrength = isStrengthSession(editingSession) ? editingSession : null;
-  const editingActivity = editingSession && !isStrengthSession(editingSession) ? editingSession : null;
-  const mode = editingSession ? (editingStrength ? "strength" : "activity") : state.trainingMode;
-  const strengthValues = strengthSessionFormValues(editingStrength, state.selectedDate);
-  const activityValues = activitySessionFormValues(editingActivity, state.selectedDate);
-
+  const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate).filter((session) => session.category !== "duration");
+  const duration = getDailyDurationRecord(state.trainingSessions, state.selectedDate);
+  const summary = buildDailySummary({ date: state.selectedDate, foodEntries: state.foodEntries, trainingSessions: state.trainingSessions });
+  const comparison = buildTrainingComparison({ date: state.selectedDate, trainingSessions: state.trainingSessions, preferredExercise: state.settings.preferredExercise, preferredMuscleGroup: state.settings.preferredMuscleGroup });
   return `
     <section class="screen">
       ${renderTopbar("Training 训练", renderSettingsButton())}
-      ${renderPageIntro("TRAINING LOG", "专注每一次发力。", "力量与户外，每一次训练都有记录。", "training")}
       ${renderErrorBanner()}
+      ${renderStatusBanner()}
       ${renderDateTools()}
-      <div class="segmented-control training-mode" role="group" aria-label="Training mode 训练模式">
-        <button type="button" data-training-mode="strength" aria-pressed="${mode === "strength"}">Strength 力量</button>
-        <button type="button" data-training-mode="activity" aria-pressed="${mode === "activity"}">Outdoor 户外</button>
+      ${renderGoalCard(comparison)}
+      <div class="entry-actions">
+        <button class="primary-button" type="button" data-open-dialog="strength">添加力量动作</button>
+        <button class="ghost-button" type="button" data-open-dialog="activity">添加户外活动</button>
       </div>
-      ${mode === "strength"
-        ? renderStrengthForm(strengthValues, editingStrength)
-        : renderActivityForm(activityValues, editingActivity)}
       <ul class="record-list">
-        ${selectedTraining.length ? selectedTraining.map(renderTrainingListItem).join("") : emptyState("No training sessions. 暂无训练记录")}
+        ${selectedTraining.length ? selectedTraining.map(renderTrainingListItem).join("") : emptyState("暂无训练记录")}
       </ul>
+      <section class="section-block duration-section">
+        <div class="section-heading"><h2>当天总时长</h2><strong>${formatNumber(summary.training.durationMinutes)} min</strong></div>
+        <button class="ghost-button" type="button" data-open-dialog="duration">${duration ? "修改当天时长" : "登记当天时长"}</button>
+      </section>
     </section>
   `;
+}
+
+function renderDurationForm() {
+  const record = getDailyDurationRecord(state.trainingSessions, state.selectedDate);
+  return `<form class="entry-form" data-form="duration" ${recordIdAttribute(record)}>
+    <div class="form-heading"><h2>当天总时长</h2></div>
+    <p class="form-help">${escapeHtml(state.selectedDate)} · 填写全天训练总时长，替代旧记录的时长汇总。消耗按主要训练类型估算。</p>
+    <input type="hidden" name="date" value="${escapeHtml(state.selectedDate)}" />
+    <div class="form-grid">
+      ${inputField("总时长（分钟）", "durationMinutes", "number", record?.durationMinutes ?? "", { min: "0", max: "1440", step: "1", required: true })}
+      ${selectField("主要训练类型", "activityType", ["strength", ...activities], record?.activityType || "strength")}
+      ${selectField("训练强度", "intensity", intensities, record?.intensity || "moderate")}
+    </div>
+    <div class="form-actions"><button class="primary-button" type="submit">保存时长</button></div>
+  </form>`;
+}
+
+function renderActiveDialog() {
+  if (!state.activeDialog) return "";
+  const record = state.trainingSessions.find((session) => session.id === state.editingTrainingId) || null;
+  const content = state.activeDialog === "food" ? renderFoodForm()
+    : state.activeDialog === "strength" ? renderStrengthForm(strengthSessionFormValues(record, state.selectedDate), record)
+    : state.activeDialog === "activity" ? renderActivityForm(activitySessionFormValues(record, state.selectedDate), record)
+    : state.activeDialog === "duration" ? renderDurationForm()
+    : renderReportDataManagement();
+  const label = { food: "食物登记", strength: "力量动作登记", activity: "户外活动登记", duration: "训练时长", data: "数据管理" }[state.activeDialog];
+  return `<dialog class="entry-dialog" aria-label="${label}"><div class="dialog-toolbar"><span>${label}</span><button class="icon-button" type="button" data-action="close-dialog" aria-label="关闭弹窗">×</button></div>${renderErrorBanner()}${content}</dialog>`;
 }
 
 function renderStrengthForm(values, editingRecord) {
   return `
     <form class="entry-form" data-form="strength" ${recordIdAttribute(editingRecord)}>
-      <div class="form-heading"><h2>${editingRecord ? "Edit strength 编辑力量" : "Strength 力量"}</h2></div>
+      <div class="form-heading"><h2>${editingRecord ? "Edit strength 编辑力量" : "添加力量动作"}</h2></div>
       <div class="form-grid">
         ${inputField("DATE 日期", "date", "date", values.date)}
-        ${inputField("DUR 时长(MIN)", "durationMinutes", "number", values.durationMinutes, { min: "0", step: "1" })}
         <div class="exercise-stack wide-field">
-          ${Array.from({ length: 3 }, (_, index) => renderStrengthExerciseFields(values, index + 1)).join("")}
+          ${Array.from({ length: editingRecord ? Math.max(1, Math.min(3, editingRecord.exercises?.length || 1)) : 1 }, (_, index) => renderStrengthExerciseFields(values, index + 1)).join("")}
         </div>
         ${textareaField("Notes 备注", "notes", values.notes)}
       </div>
-      ${renderFormActions("trainingSessions", editingRecord, "Add strength 添加力量", "Save strength 保存力量")}
+      ${renderFormActions("trainingSessions", editingRecord, "保存动作", "保存修改")}
     </form>
   `;
 }
@@ -575,7 +592,7 @@ function renderStrengthExerciseFields(values, exerciseNumber) {
   return `
     <section class="exercise-entry" data-hand-mode="${resolveHandMode(handMode)}">
       <div class="exercise-entry-heading">
-        <h3>动作 ${exerciseNumber}<small>EX ${exerciseNumber}</small></h3>
+        <h3>动作 ${exerciseNumber}</h3>
         ${selectField("WEIGHT 重量方式", `handMode${exerciseNumber}`, handModeOptions, handMode, {
           dataHandModeSelect: "true"
         })}
@@ -615,7 +632,6 @@ function renderActivityForm(values, editingRecord) {
       <div class="form-grid">
         ${inputField("DATE 日期", "date", "date", values.date)}
         ${selectField("TYPE 类型", "activityType", activities, values.activityType)}
-        ${inputField("DUR 时长(MIN)", "durationMinutes", "number", values.durationMinutes, { min: "0", step: "1" })}
         ${inputField("DIST 距离(KM)", "distanceKm", "number", values.distanceKm, { min: "0", step: "0.01" })}
         ${selectField("INT 强度", "intensity", intensities, values.intensity)}
         ${textareaField("Notes 备注", "notes", values.notes)}
@@ -635,11 +651,21 @@ function renderReportsPage() {
 
   return `
     <section class="screen">
-      ${renderTopbar("Reports 报告", `${renderSettingsButton()}<button class="ghost-button export-button" type="button" data-action="download-xlsx">${renderIcon("download")} Excel</button>`)}
-      ${renderPageIntro("YOUR WEEK IN REVIEW", "进步，有迹可循。", "每周训练与营养，一览你的投入。", "reports")}
+      ${renderTopbar("Reports 报告", renderSettingsButton())}
       ${renderErrorBanner()}
       ${renderStatusBanner()}
       ${renderDateTools()}
+      <div class="report-export-actions">
+        <button class="ghost-button" type="button" data-action="download-pdf">${renderIcon("download")} PDF 图表</button>
+        <button class="ghost-button" type="button" data-action="download-docx">${renderIcon("download")} Word 文字</button>
+        <button class="ghost-button" type="button" data-action="download-xlsx">${renderIcon("download")} Excel</button>
+      </div>
+      ${renderTrainingComparison(buildTrainingComparison({ date: state.selectedDate, trainingSessions: state.trainingSessions, preferredExercise: state.settings.preferredExercise, preferredMuscleGroup: state.settings.preferredMuscleGroup }))}
+      <section class="section-block">
+        <div class="section-heading"><h2>本周净热量</h2><span>${escapeHtml(weekStart)}</span></div>
+        ${renderMiniWeeklyChart(report)}
+        <div class="chart-legend weekly-legend"><span><i class="positive"></i>净摄入 ≥ 0</span><span><i class="negative"></i>净摄入 &lt; 0</span></div>
+      </section>
       <div class="reports-grid">
         ${renderTrainingCategoryChart(state.trainingSessions, weekStart)}
         ${renderDualBarChart("Calories 热量摄入与训练", report.series.dates, report.series.calorieIntake, report.series.trainingCalories, "Intake", "Training", "kcal")}
@@ -664,7 +690,7 @@ function renderReportsPage() {
         <summary>VIT 维生素周报</summary>
         ${renderMicronutrientSummary(report, state.settings, vitaminKeys, "Vitamins 维生素")}
       </details>
-      ${renderReportDataManagement()}
+      <div class="entry-actions"><button class="ghost-button" type="button" data-open-dialog="data">数据管理 ${renderIcon("arrow")}</button></div>
     </section>
   `;
 }
@@ -736,7 +762,6 @@ function renderSettingsPage() {
     <section class="screen">
       ${renderTopbar("Settings 设置", '<button class="icon-button" type="button" data-tab="overview" aria-label="Close settings" title="Close settings">&times;</button>')}
       ${renderErrorBanner()}
-      ${renderPageIntro("MAKE IT YOURS", "按你的节奏来。", "设定目标，让每一天更有方向。", "settings")}
       <form class="entry-form settings-form" data-form="settings">
         <section class="settings-section">
           <div class="form-heading"><h2>Personal 基础</h2></div>
@@ -781,6 +806,7 @@ function renderSettingsPage() {
         </details>
         <button class="primary-button" type="submit">Save settings 保存设置</button>
       </form>
+      <div class="report-export-actions"><a class="ghost-button" href="./privacy.html">隐私说明</a><a class="ghost-button" href="./support.html">帮助与支持</a></div>
     </section>
   `;
 }
@@ -801,15 +827,11 @@ function renderTopbar(title, action = "") {
   const [english, chinese] = title.split(" ");
   return `
     <header class="topbar">
-      <div class="brand-mark" aria-hidden="true">${renderIcon("training")}</div>
+      <div class="brand-mark page-intro-icon" aria-hidden="true">${renderIcon(english.toLowerCase())}</div>
       <h1>${escapeHtml(chinese)}<small>${escapeHtml(english)}<span class="version-label">V3</span></small></h1>
       <div class="topbar-actions">${action}</div>
     </header>
   `;
-}
-
-function renderPageIntro(eyebrow, title, description, icon) {
-  return `<div class="page-intro"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2><p>${description}</p></div><span class="page-intro-icon" aria-hidden="true">${renderIcon(icon)}</span></div>`;
 }
 
 function renderIcon(name) {
@@ -899,7 +921,7 @@ function renderGoalCard(comparison) {
   return `
     <section class="goal-card">
       <div class="goal-primary">
-        <span>YOUR NEXT MILESTONE · 今日目标</span>
+        <span>今日目标</span>
         <strong>${escapeHtml(exercise)}</strong>
         <small>${escapeHtml(muscle)} · ${weightGoal ? `${formatNumber(weightGoal)} kg` : "Weight 待设置"}</small>
       </div>
@@ -976,7 +998,7 @@ function renderTrainingSnippet(session) {
   return `
     <span>${escapeHtml(trainingCategoryLabel(session))}</span>
     <strong>${escapeHtml(trainingTitle(session))}</strong>
-    <small>${formatNumber(session.durationMinutes)} min</small>
+    <small>${escapeHtml(trainingSessionMeta(session))}</small>
   `;
 }
 
@@ -1104,7 +1126,7 @@ export function countTrainingCategories(trainingSessions, weekStart) {
   const weekEnd = addDays(weekStart, 6);
   const aerobicTypes = new Set(["running", "cycling", "walking", "hiking", "hiit", "swimming", "rowing"]);
   return trainingSessions
-    .filter((session) => session.date >= weekStart && session.date <= weekEnd)
+    .filter((session) => session.category !== "duration" && session.date >= weekStart && session.date <= weekEnd)
     .reduce(
       (counts, session) => {
         if (isStrengthSession(session)) counts.strength += 1;
@@ -1370,7 +1392,7 @@ function foodEntryFormValues(entry, fallbackDate) {
 function strengthSessionFormValues(session, fallbackDate) {
   const values = {
     date: session?.date || fallbackDate,
-    durationMinutes: formNumberValue(session?.durationMinutes, "45"),
+    durationMinutes: formNumberValue(session?.durationMinutes, ""),
     notes: session?.notes || ""
   };
   for (let exerciseIndex = 0; exerciseIndex < 3; exerciseIndex += 1) {
@@ -1398,7 +1420,7 @@ function activitySessionFormValues(session, fallbackDate) {
   return {
     date: session?.date || fallbackDate,
     activityType: session?.activityType || "running",
-    durationMinutes: formNumberValue(session?.durationMinutes, "30"),
+    durationMinutes: formNumberValue(session?.durationMinutes, ""),
     distanceKm: formNumberValue(session?.distanceKm),
     intensity: session?.intensity || "moderate",
     notes: session?.notes || ""
@@ -1435,6 +1457,7 @@ async function handleSubmit(event) {
       const existing = state.trainingSessions.find((session) => session.id === recordId);
       const strengthRecord = buildStrengthSessionRecord({
         ...values,
+        durationMinutes: values.durationMinutes ?? existing?.durationMinutes ?? 0,
         bodyWeightKg: state.settings?.bodyWeightKg
       });
       const usesIndexedExercises = Object.prototype.hasOwnProperty.call(values, "exerciseName1");
@@ -1463,12 +1486,27 @@ async function handleSubmit(event) {
       const existing = state.trainingSessions.find((session) => session.id === recordId);
       const saved = await storageAdapters.saveRecord("trainingSessions", {
         ...existing,
-        ...buildActivitySessionRecord(values),
+        ...buildActivitySessionRecord({ ...values, durationMinutes: values.durationMinutes ?? existing?.durationMinutes ?? 0 }),
         ...(recordId ? { id: recordId } : {})
       });
       state.trainingSessions = upsertRecord(state.trainingSessions, saved);
       state.editingTrainingId = null;
       state.selectedDate = saved.date;
+    }
+
+    if (formType === "duration") {
+      const existing = getDailyDurationRecord(state.trainingSessions, values.date);
+      const saved = await storageAdapters.saveRecord("trainingSessions", {
+        ...existing,
+        id: existing?.id || `duration-${values.date}`,
+        date: values.date,
+        category: "duration",
+        activityType: values.activityType || "strength",
+        durationMinutes: Math.min(1440, Math.max(0, toNumber(values.durationMinutes))),
+        bodyWeightKg: toNumber(state.settings?.bodyWeightKg, 70),
+        intensity: values.intensity || "moderate"
+      });
+      state.trainingSessions = upsertRecord(state.trainingSessions, saved);
     }
 
     if (formType === "settings") {
@@ -1480,6 +1518,7 @@ async function handleSubmit(event) {
     }
 
     state.errorMessage = null;
+    state.activeDialog = null;
     renderApp();
     if (formType === "settings" && typeof window !== "undefined") window.scrollTo(0, 0);
   } catch (error) {
@@ -1497,8 +1536,21 @@ export function bindAppInteractions(root) {
 }
 
 async function handleClick(event) {
+  const dialogButton = event.target.closest("[data-open-dialog]");
+  if (dialogButton) {
+    clearEditingState();
+    state.activeDialog = dialogButton.dataset.openDialog;
+    state.errorMessage = null;
+    renderApp();
+    return;
+  }
+  if (event.target.closest('[data-action="close-dialog"]')) {
+    closeEntryDialog();
+    return;
+  }
   const tabButton = event.target.closest("[data-tab]");
   if (tabButton) {
+    clearEditingState();
     state.activeTab = tabButton.dataset.tab;
     renderApp();
     if (typeof window !== "undefined") window.scrollTo(0, 0);
@@ -1612,6 +1664,7 @@ async function handleClick(event) {
     if (storeName === "trainingSessions") {
       state.trainingMode = isStrengthSession(record) ? "strength" : "activity";
     }
+    state.activeDialog = storeName === "foodEntries" ? "food" : record.category === "duration" ? "duration" : state.trainingMode;
     renderApp();
     if (typeof window !== "undefined") window.scrollTo(0, 0);
     return;
@@ -1619,21 +1672,46 @@ async function handleClick(event) {
 
   const cancelButton = event.target.closest("[data-cancel-edit]");
   if (cancelButton) {
-    if (cancelButton.dataset.cancelEdit === "foodEntries") state.editingFoodId = null;
-    if (cancelButton.dataset.cancelEdit === "trainingSessions") state.editingTrainingId = null;
-    renderApp();
+    closeEntryDialog();
+    return;
+  }
+
+  const reportExportButton = event.target.closest('[data-action="download-pdf"], [data-action="download-docx"]');
+  if (reportExportButton) {
+    reportExportButton.disabled = true;
+    try {
+      await downloadDocumentReport(reportExportButton.dataset.action === "download-pdf" ? "pdf" : "docx");
+    } catch (error) {
+      console.warn("Report export failed.", error);
+      state.errorMessage = "报告导出失败，请重试。";
+      renderApp();
+    } finally {
+      reportExportButton.disabled = false;
+    }
     return;
   }
 
   const downloadButton = event.target.closest('[data-action="download-xlsx"]');
   if (downloadButton) {
-    downloadExcelReport();
+    try {
+      await downloadExcelReport();
+    } catch (error) {
+      console.warn("Excel export failed.", error);
+      state.errorMessage = "Excel 导出失败，请关闭分享窗口后重试。";
+      renderApp();
+    }
     return;
   }
 
   const backupButton = event.target.closest('[data-action="download-json"]');
   if (backupButton) {
-    downloadJsonBackup();
+    try {
+      await downloadJsonBackup();
+    } catch (error) {
+      console.warn("Backup export failed.", error);
+      state.errorMessage = "备份导出失败，请关闭分享窗口后重试。";
+      renderApp();
+    }
   }
 }
 
@@ -1755,7 +1833,14 @@ function buildActivitySessionRecord(values) {
   };
 }
 
-function downloadExcelReport() {
+async function downloadDocumentReport(format) {
+  const weekStart = getWeekStart(state.selectedDate);
+  const input = { weekStart, foodEntries: state.foodEntries, trainingSessions: state.trainingSessions };
+  const buffer = format === "pdf" ? await createReportPdfBuffer(input) : createReportDocxBuffer(input);
+  await downloadBlob(new Blob([buffer], { type: format === "pdf" ? PDF_MIME_TYPE : DOCX_MIME_TYPE }), `fitness-report-${weekStart}.${format}`);
+}
+
+async function downloadExcelReport() {
   const weekStart = getWeekStart(state.selectedDate);
   const rows = buildExportRows({
     foodEntries: state.foodEntries,
@@ -1763,20 +1848,29 @@ function downloadExcelReport() {
     weekStart
   });
   const blob = new Blob(createWorkbookBlobParts(rows), { type: XLSX_MIME_TYPE });
-  downloadBlob(blob, `fitness-report-${weekStart}.xlsx`);
+  await downloadBlob(blob, `fitness-report-${weekStart}.xlsx`);
 }
 
-function downloadJsonBackup() {
+async function downloadJsonBackup() {
   const payload = buildBackupPayload({
     settings: state.settings,
     foodEntries: state.foodEntries,
     trainingSessions: state.trainingSessions
   });
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  downloadBlob(blob, `fitness-backup-${getLocalDateString()}.json`);
+  await downloadBlob(blob, `fitness-backup-${getLocalDateString()}.json`);
 }
 
-function downloadBlob(blob, filename) {
+async function downloadBlob(blob, filename) {
+  if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform()) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 8192) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+    }
+    await window.Capacitor.Plugins.FitnessExport.shareFile({ base64: btoa(binary), filename });
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -1815,11 +1909,20 @@ function mergeRecords(records, imported) {
 function clearEditingState() {
   state.editingFoodId = null;
   state.editingTrainingId = null;
+  state.activeDialog = null;
+}
+
+function closeEntryDialog() {
+  const previousDialog = state.activeDialog;
+  clearEditingState();
+  state.pendingCleanupRange = null;
+  renderApp();
+  appRoot?.querySelector(`[data-open-dialog="${previousDialog}"]`)?.focus();
 }
 
 export function isStrengthSession(session) {
   return Boolean(
-    session &&
+    session && session.category !== "duration" &&
       (session.category === "strength" ||
         session.activityType === "strength" ||
         session.exercises?.length)
@@ -1827,6 +1930,7 @@ export function isStrengthSession(session) {
 }
 
 function trainingTitle(session) {
+  if (session.category === "duration") return "当天总时长";
   const exercises = (session.exercises || []).map((exercise) => exercise.name).filter(Boolean);
   return exercises.length
     ? exercises.slice(0, 3).join(" · ")
@@ -1834,18 +1938,20 @@ function trainingTitle(session) {
 }
 
 function trainingCategoryLabel(session) {
+  if (session.category === "duration") return "总时长";
   return isStrengthSession(session)
     ? "Strength 力量"
     : `${session.activityType || session.category || "Outdoor"} 户外`;
 }
 
 function trainingSessionMeta(session) {
+  if (session.category === "duration") return `${formatNumber(session.durationMinutes)} min`;
   const sets = (session.exercises || []).flatMap((exercise) => exercise.sets || []);
   if (sets.length > 0) {
     const volume = sets.reduce((total, set) => total + (Number(set.reps) || 0) * (Number(set.weight) || 0), 0);
-    return `${sets.length} sets - ${formatNumber(volume)} kg x reps - ${formatNumber(session.durationMinutes)} min`;
+    return `${sets.length} sets · ${formatNumber(volume)} kg × reps`;
   }
-  return `${formatNumber(session.durationMinutes)} min - ${formatNumber(session.distanceKm)} km`;
+  return `${formatNumber(session.distanceKm)} km`;
 }
 
 function targetPercent(value, target) {
@@ -1903,7 +2009,7 @@ if (appRoot) {
   });
 }
 
-if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator && !window.Capacitor?.isNativePlatform()) {
   navigator.serviceWorker
     .register("./service-worker.js")
     .catch((error) => {

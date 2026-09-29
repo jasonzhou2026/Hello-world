@@ -1,11 +1,23 @@
 {
   "name": "fitness-tracker-pwa",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "serve": "python3 -m http.server 4173 --bind 127.0.0.1",
-    "serve:lan": "python3 -m http.server 4173 --bind 0.0.0.0"
+    "serve:lan": "python3 -m http.server 4173 --bind 0.0.0.0",
+    "build:ios-web": "node scripts/build-web.mjs",
+    "ios:sync": "npm run build:ios-web && cap sync ios",
+    "ios:open": "cap open ios",
+    "ios:build": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath artifacts/ios-build -scmProvider system CODE_SIGNING_ALLOWED=NO build",
+    "ios:archive:unsigned": "npm run ios:sync && xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath artifacts/FitnessTracker.xcarchive -derivedDataPath artifacts/ios-build -scmProvider system CODE_SIGNING_ALLOWED=NO archive"
+  },
+  "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
   }
 }

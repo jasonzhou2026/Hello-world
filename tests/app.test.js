@@ -343,6 +343,7 @@ test("binds delegated UI events for submit, edit, tab, date, settings, and expor
     state.errorMessage = null;
     state.editingFoodId = null;
     state.editingTrainingId = null;
+    state.activeDialog = null;
     state.trainingMode = "strength";
   };
 
@@ -662,6 +663,182 @@ test("binds delegated UI events for submit, edit, tab, date, settings, and expor
   assert.equal(createdDownload.removed, true);
   assert.equal(revokedUrl, "blob:fitness-report");
 });
+
+test("daily total records do not add training categories or become strength actions", () => {
+  const sessions = [
+    { date: "2026-09-29", category: "strength", activityType: "strength" },
+    { date: "2026-09-29", category: "duration", activityType: "strength", durationMinutes: 60 },
+    { date: "2026-09-30", category: "outdoor", activityType: "running" },
+    { date: "2026-09-30", category: "duration", activityType: "running", durationMinutes: 30 }
+  ];
+  assert.deepEqual(countTrainingCategories(sessions, "2026-09-28"), { strength: 1, aerobic: 1, other: 0 });
+  assert.equal(isStrengthSession(sessions[1]), false);
+  assert.match(renderTrainingCategoryChart(sessions, "2026-09-28"), /Strength 1, aerobic 1, other 0/);
+});
+
+test("add, edit and close dialog actions retain saved records and clear stale edit state", async (t) => {
+  const ui = createInteractionHarness(t);
+  state.foodEntries = [{ id: "food-dialog", date: "2026-09-28", name: "米饭" }];
+  state.trainingSessions = [
+    { id: "strength-dialog", date: "2026-09-29", category: "strength", exercises: [{ name: "深蹲" }] },
+    { id: "activity-dialog", date: "2026-09-29", category: "outdoor", activityType: "running" }
+  ];
+  const originalFood = structuredClone(state.foodEntries);
+  const originalTraining = structuredClone(state.trainingSessions);
+  state.editingTrainingId = "strength-dialog";
+  state.errorMessage = "previous failure";
+  await ui.click("[data-open-dialog]", { openDialog: "food" });
+  assert.equal(state.activeDialog, "food");
+  assert.equal(state.editingTrainingId, null);
+  assert.equal(state.errorMessage, null);
+  await ui.click("[data-edit-store][data-id]", { editStore: "foodEntries", id: "food-dialog" });
+  assert.equal(state.editingFoodId, "food-dialog");
+  assert.equal(state.activeDialog, "food");
+  assert.equal(state.selectedDate, "2026-09-28");
+  await ui.click('[data-action="close-dialog"]');
+  assert.equal(state.activeDialog, null);
+  assert.equal(state.editingFoodId, null);
+  await ui.click("[data-edit-store][data-id]", { editStore: "trainingSessions", id: "strength-dialog" });
+  assert.equal(state.activeDialog, "strength");
+  assert.equal(state.editingTrainingId, "strength-dialog");
+  await ui.click("[data-cancel-edit]", { cancelEdit: "trainingSessions" });
+  assert.equal(state.activeDialog, null);
+  assert.equal(state.editingTrainingId, null);
+  await ui.click("[data-edit-store][data-id]", { editStore: "trainingSessions", id: "activity-dialog" });
+  assert.equal(state.activeDialog, "activity");
+  await ui.click("[data-tab]", { tab: "reports" });
+  assert.equal(state.activeDialog, null);
+  assert.equal(state.editingTrainingId, null);
+  assert.deepEqual(state.foodEntries, originalFood);
+  assert.deepEqual(state.trainingSessions, originalTraining);
+  assert.equal(ui.saved.length, 0);
+});
+
+test("new strength dialog saves one action without inventing a duration", async (t) => {
+  const ui = createInteractionHarness(t);
+  state.activeDialog = "strength";
+  await ui.submit("strength", {
+    date: "2026-09-29", exerciseName1: "深蹲", muscleGroup1: "腿", handMode1: "single", e1weight1: "50", e1reps1: "8", notes: "单个动作"
+  });
+  assert.equal(state.trainingSessions.length, 1);
+  assert.equal(state.trainingSessions[0].durationMinutes, 0);
+  assert.equal(state.trainingSessions[0].exercises.length, 1);
+  assert.equal(state.trainingSessions[0].exercises[0].name, "深蹲");
+  assert.equal(state.activeDialog, null);
+});
+
+test("editing a legacy strength record preserves hidden duration, extra sets and extra exercises", async (t) => {
+  const ui = createInteractionHarness(t);
+  const legacy = {
+    id: "legacy-strength", date: "2026-09-29", category: "strength", activityType: "strength", durationMinutes: 55,
+    createdAt: "2026-06-01T12:00:00Z", importedTag: "keep", bodyWeightKg: 72,
+    exercises: Array.from({ length: 4 }, (_, index) => ({ name: `旧动作${index + 1}`, muscleGroup: "腿", sets: Array.from({ length: 7 }, (_set, n) => ({ weight: 10 + index, reps: n + 1 })) }))
+  };
+  state.trainingSessions = [legacy];
+  const values = { date: legacy.date, notes: "修改备注" };
+  for (let index = 1; index <= 3; index += 1) {
+    values[`exerciseName${index}`] = index === 1 ? "更新动作" : legacy.exercises[index - 1].name;
+    values[`muscleGroup${index}`] = "腿";
+    values[`handMode${index}`] = "single";
+    for (let set = 1; set <= 6; set += 1) {
+      values[`e${index}weight${set}`] = String(legacy.exercises[index - 1].sets[set - 1].weight);
+      values[`e${index}reps${set}`] = String(set);
+    }
+  }
+  await ui.submit("strength", values, legacy.id);
+  const saved = state.trainingSessions[0];
+  assert.equal(saved.id, legacy.id);
+  assert.equal(saved.durationMinutes, 55);
+  assert.equal(saved.createdAt, legacy.createdAt);
+  assert.equal(saved.importedTag, "keep");
+  assert.equal(saved.exercises.length, 4);
+  assert.equal(saved.exercises[0].name, "更新动作");
+  assert.deepEqual(saved.exercises[3], legacy.exercises[3]);
+  for (let index = 0; index < 3; index += 1) {
+    assert.equal(saved.exercises[index].sets.length, 7);
+    assert.deepEqual(saved.exercises[index].sets[6], legacy.exercises[index].sets[6]);
+  }
+});
+
+test("editing an outdoor record preserves its hidden legacy duration and metadata", async (t) => {
+  const ui = createInteractionHarness(t);
+  state.trainingSessions = [{ id: "legacy-run", date: "2026-09-29", category: "outdoor", activityType: "running", durationMinutes: 35, distanceKm: 5, importedTag: "keep" }];
+  await ui.submit("activity", { date: "2026-09-29", activityType: "running", distanceKm: "6", intensity: "hard", notes: "updated" }, "legacy-run");
+  assert.equal(state.trainingSessions.length, 1);
+  assert.equal(state.trainingSessions[0].durationMinutes, 35);
+  assert.equal(state.trainingSessions[0].distanceKm, 6);
+  assert.equal(state.trainingSessions[0].importedTag, "keep");
+});
+
+test("daily duration is inserted once per day, updated by id, and accepts an explicit zero", async (t) => {
+  const ui = createInteractionHarness(t);
+  state.trainingSessions = [{ id: "duration-existing", date: "2026-09-28", category: "duration", activityType: "strength", durationMinutes: 20, importedTag: "keep" }];
+  state.activeDialog = "duration";
+  await ui.submit("duration", { date: "2026-09-29", durationMinutes: "65", activityType: "running", intensity: "hard" });
+  assert.equal(state.trainingSessions.length, 2);
+  const created = state.trainingSessions.find((session) => session.date === "2026-09-29");
+  assert.equal(created.id, "duration-2026-09-29");
+  assert.equal(created.durationMinutes, 65);
+  assert.equal(created.category, "duration");
+  assert.equal(state.activeDialog, null);
+  await ui.submit("duration", { date: "2026-09-29", durationMinutes: "0", activityType: "strength", intensity: "light" });
+  assert.equal(state.trainingSessions.length, 2);
+  assert.equal(state.trainingSessions.find((session) => session.id === created.id).durationMinutes, 0);
+  await ui.submit("duration", { date: "2026-09-28", durationMinutes: "40", activityType: "strength" });
+  assert.equal(state.trainingSessions.length, 2);
+  assert.equal(state.trainingSessions.find((session) => session.id === "duration-existing").durationMinutes, 40);
+  assert.equal(state.trainingSessions.find((session) => session.id === "duration-existing").importedTag, "keep");
+});
+
+test("failed dialog save keeps the dialog open and leaves the saved record untouched", async (t) => {
+  const ui = createInteractionHarness(t);
+  const originalWarn = console.warn;
+  t.after(() => { console.warn = originalWarn; });
+  console.warn = () => {};
+  configureStorageAdapters({ saveRecord: async () => { throw new Error("storage unavailable"); } });
+  state.activeDialog = "duration";
+  state.trainingSessions = [{ id: "duration-2026-09-29", date: "2026-09-29", category: "duration", durationMinutes: 30 }];
+  await ui.submit("duration", { date: "2026-09-29", durationMinutes: "60" });
+  assert.equal(state.activeDialog, "duration");
+  assert.equal(state.trainingSessions[0].durationMinutes, 30);
+  assert.match(state.errorMessage, /Could not save/);
+});
+
+function createInteractionHarness(t) {
+  const previousState = structuredClone(state);
+  const previousFormData = globalThis.FormData;
+  const listeners = {};
+  const saved = [];
+  t.after(() => {
+    Object.assign(state, previousState);
+    globalThis.FormData = previousFormData;
+    resetStorageAdapters();
+  });
+  Object.assign(state, {
+    activeTab: "training", activeDialog: null, selectedDate: "2026-09-29", foodEntries: [], trainingSessions: [],
+    editingFoodId: null, editingTrainingId: null, errorMessage: null, pendingCleanupRange: null,
+    settings: { id: "default", bodyWeightKg: 72 }
+  });
+  globalThis.FormData = class {
+    constructor(form) { this.values = form.values; }
+    entries() { return Object.entries(this.values); }
+  };
+  configureStorageAdapters({ saveRecord: async (store, record) => {
+    saved.push({ store, record: structuredClone(record) });
+    return { id: `test-${saved.length}`, ...record };
+  } });
+  bindAppInteractions({ addEventListener(type, handler) { listeners[type] = handler; } });
+  return {
+    saved,
+    click(selector, dataset = {}) {
+      return listeners.click({ target: { closest(candidate) { return candidate === selector ? { dataset } : null; } } });
+    },
+    submit(type, values, recordId) {
+      const form = { dataset: { form: type, ...(recordId ? { recordId } : {}) }, values, closest(selector) { return selector === "form[data-form]" ? this : null; } };
+      return listeners.submit({ target: form, preventDefault() {} });
+    }
+  };
+}
 
 test("confirms report cleanup for a date range and keeps records outside it", async (t) => {
   const listeners = {};

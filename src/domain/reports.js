@@ -1,5 +1,5 @@
 import { addDays, aggregateDailyNutrition } from "./nutrition.js";
-import { summarizeTrainingForDate } from "./training.js";
+import { summarizeTrainingForDate } from "./training.js?v=44";
 
 export function buildDailySummary({ date, foodEntries, trainingSessions }) {
   const nutrition = aggregateDailyNutrition(foodEntries, date);

@@ -109,3 +109,45 @@ test("defaults explicit zero body weight to 70kg", () => {
 
   assert.equal(calories, 280);
 });
+
+test("daily total replaces legacy duration and calories while retaining exercises and distance", () => {
+  const sessions = [
+    { date: "2026-09-29", category: "strength", activityType: "strength", durationMinutes: 45, bodyWeightKg: 70, exercises: [{ sets: [{ weight: 80, reps: 5 }] }] },
+    { date: "2026-09-29", category: "outdoor", activityType: "running", durationMinutes: 30, bodyWeightKg: 70, distanceKm: 5 },
+    { date: "2026-09-29", category: "duration", activityType: "cycling", durationMinutes: 60, bodyWeightKg: 70, intensity: "moderate" },
+    { date: "2026-09-30", category: "duration", activityType: "strength", durationMinutes: 200, bodyWeightKg: 70 }
+  ];
+  assert.deepEqual(summarizeTrainingForDate(sessions, "2026-09-29"), {
+    strengthVolume: 400,
+    totalSets: 1,
+    durationMinutes: 60,
+    aerobicDurationMinutes: 60,
+    distanceKm: 5,
+    calories: 490
+  });
+});
+
+test("explicit zero daily total overrides old activity duration and calorie estimates", () => {
+  const sessions = [
+    { date: "2026-09-29", activityType: "running", durationMinutes: 40, bodyWeightKg: 70, distanceKm: 6 },
+    { date: "2026-09-29", category: "duration", activityType: "strength", durationMinutes: 0, bodyWeightKg: 70 }
+  ];
+  const summary = summarizeTrainingForDate(sessions, "2026-09-29");
+  assert.equal(summary.durationMinutes, 0);
+  assert.equal(summary.aerobicDurationMinutes, 0);
+  assert.equal(summary.calories, 0);
+  assert.equal(summary.distanceKm, 6);
+});
+
+test("latest daily total wins among imported duplicates without mutating source records", () => {
+  const sessions = [
+    { id: "duration-old", date: "2026-09-29", category: "duration", activityType: "running", durationMinutes: 90, bodyWeightKg: 70, updatedAt: "2026-09-29T10:00:00Z" },
+    { id: "duration-new", date: "2026-09-29", category: "duration", activityType: "strength", durationMinutes: 50, bodyWeightKg: 70, updatedAt: "2026-09-29T12:00:00Z" }
+  ];
+  const original = structuredClone(sessions);
+  const summary = summarizeTrainingForDate(sessions, "2026-09-29");
+  assert.equal(summary.durationMinutes, 50);
+  assert.equal(summary.aerobicDurationMinutes, 0);
+  assert.equal(summary.calories, 292);
+  assert.deepEqual(sessions, original);
+});

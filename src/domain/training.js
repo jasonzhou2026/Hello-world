@@ -38,9 +38,17 @@ export function calculateTrainingCalories(session) {
   return Math.round(met * bodyWeightKg * durationHours);
 }
 
-export function summarizeTrainingForDate(sessions, date) {
+export function getDailyDurationRecord(sessions, date) {
   return sessions
-    .filter((session) => session.date === date)
+    .filter((session) => session.date === date && session.category === "duration")
+    .sort((a, b) => String(b.updatedAt || b.id).localeCompare(String(a.updatedAt || a.id)))[0];
+}
+
+export function summarizeTrainingForDate(sessions, date) {
+  const dailySessions = sessions.filter((session) => session.date === date);
+  const dailyDuration = getDailyDurationRecord(dailySessions, date);
+  const summary = dailySessions
+    .filter((session) => session.category !== "duration")
     .reduce(
       (summary, session) => {
         const exercises = session.exercises || [];
@@ -64,4 +72,10 @@ export function summarizeTrainingForDate(sessions, date) {
         calories: 0
       }
     );
+  if (dailyDuration) {
+    summary.durationMinutes = Number(dailyDuration.durationMinutes) || 0;
+    summary.aerobicDurationMinutes = dailyDuration.activityType === "strength" ? 0 : summary.durationMinutes;
+    summary.calories = calculateTrainingCalories(dailyDuration);
+  }
+  return summary;
 }

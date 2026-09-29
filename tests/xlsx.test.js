@@ -119,6 +119,55 @@ test("shapes export rows for all workbook sheets", () => {
   assert.equal(trainingRow[10], 400);
 });
 
+test("training details count legacy session duration, calories and distance only once across exercise rows", () => {
+  const trainingSessions = [{
+    date: "2026-09-29", category: "strength", activityType: "strength", durationMinutes: 45, bodyWeightKg: 70, distanceKm: 1,
+    exercises: [{ name: "深蹲", sets: [{ weight: 40, reps: 8 }] }, { name: "卧推", sets: [{ weight: 30, reps: 8 }] }]
+  }];
+  const rows = buildExportRows({ weekStart: "2026-09-28", trainingSessions });
+  const details = rows["Training Details"].slice(1);
+  assert.equal(details.length, 2);
+  assert.deepEqual(details.map((row) => row[7]), [45, ""]);
+  assert.deepEqual(details.map((row) => row[11]), [263, ""]);
+  assert.deepEqual(details.map((row) => row[8]), [1, ""]);
+  assert.deepEqual(details.map((row) => row[10]), [320, 240]);
+  assert.match(details[0][12], /首个动作/);
+  const daily = rows["Daily Summary"].find((row) => row[0] === "2026-09-29");
+  assert.equal(details.reduce((sum, row) => sum + Number(row[7]), 0), daily[9]);
+  assert.equal(details.reduce((sum, row) => sum + Number(row[11]), 0), daily[2]);
+});
+
+test("training details suppress overridden legacy totals and older duplicate daily durations", () => {
+  const trainingSessions = [
+    { date: "2026-09-29", category: "strength", activityType: "strength", durationMinutes: 45, bodyWeightKg: 70, exercises: [{ name: "深蹲", sets: [{ weight: 40, reps: 8 }] }, { name: "卧推", sets: [{ weight: 30, reps: 8 }] }] },
+    { date: "2026-09-29", activityType: "running", durationMinutes: 25, bodyWeightKg: 70, distanceKm: 5 },
+    { id: "old", date: "2026-09-29", category: "duration", activityType: "running", durationMinutes: 90, bodyWeightKg: 70, updatedAt: "2026-09-29T10:00:00Z" },
+    { id: "new", date: "2026-09-29", category: "duration", activityType: "strength", durationMinutes: 60, bodyWeightKg: 70, updatedAt: "2026-09-29T12:00:00Z" }
+  ];
+  const rows = buildExportRows({ weekStart: "2026-09-28", trainingSessions });
+  const details = rows["Training Details"].slice(1);
+  assert.equal(details.length, 4);
+  assert.deepEqual(details.map((row) => row[7]), ["", "", "", 60]);
+  assert.deepEqual(details.map((row) => row[11]), ["", "", "", 350]);
+  assert.equal(details.filter((row) => row[1] === "duration").length, 1);
+  assert.equal(details.at(-1)[2], "当天总时长");
+  assert.match(details[0][12], /不重复累计/);
+  const daily = rows["Daily Summary"].find((row) => row[0] === "2026-09-29");
+  assert.equal(details.reduce((sum, row) => sum + Number(row[7]), 0), daily[9]);
+  assert.equal(details.reduce((sum, row) => sum + Number(row[11]), 0), daily[2]);
+  assert.equal(details.reduce((sum, row) => sum + Number(row[8]), 0), daily[10]);
+});
+
+test("zero daily duration stays numeric zero and overrides nonzero legacy details", () => {
+  const rows = buildExportRows({ weekStart: "2026-09-28", trainingSessions: [
+    { date: "2026-09-29", activityType: "running", durationMinutes: 45, bodyWeightKg: 70 },
+    { date: "2026-09-29", category: "duration", activityType: "strength", durationMinutes: 0, bodyWeightKg: 70 }
+  ] });
+  const details = rows["Training Details"].slice(1);
+  assert.deepEqual(details.map((row) => row[7]), ["", 0]);
+  assert.deepEqual(details.map((row) => row[11]), ["", 0]);
+});
+
 test("creates an xlsx zip buffer with workbook files", () => {
   const sheets = {
     "Daily Summary": [["Date", "Calories"], ["2026-06-04", 200]],
