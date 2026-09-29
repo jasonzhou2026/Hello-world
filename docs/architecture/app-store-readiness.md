@@ -116,11 +116,13 @@ npm run ios:archive
 
 ## 中国区发布的实际状态与待补项
 
-下列送审记录对应构建 2，状态核验时间为 2026-09-29 约 04:20（America/Chicago）；构建 3 于 05:22:31 上传成功（日志 `artifacts/review/fitness-ios-build3-upload.log`），Apple 页面显示“正在处理”。旧构建 2 尚在等待审核；替换需取消旧提交并重排审核队列，当前正等待用户对此步骤的明确授权。
+最新状态：2026-09-29 05:32（America/Chicago），用户明确授权替换旧审核后，构建 3 已关联至版本 1.0 并正式重新提交，Apple 显示“已提交 1 个项目”和“等待审核”。新提交 ID 为 `3596f837-87a2-4ac4-ba19-9916b16e9238`，[构建 3 审核提交](https://appstoreconnect.apple.com/apps/6817268320/distribution/reviewsubmissions/details/3596f837-87a2-4ac4-ba19-9916b16e9238)。商店描述和审核备注已加入三种小组件、尺寸选择、点击完成与本机共享说明。原构建 2 的提交显示“已移除”。中国大陆供应和通过审核后自动发布的设置保持有效；尚未审核通过或上架。截图凭证为 `artifacts/review/widget-build3-submitted.png` 与 `widget-build3-waiting-review.png`。
+
+构建 3 于 05:22:31 上传成功（日志 `artifacts/review/fitness-ios-build3-upload.log`），随后处理完成并可提交，出口合规无阻断。以下保留此前构建 1/2 的发布准备记录：
 
 1. 浏览器已核验团队 `9R87HUBYQH`。账户最初提示新版 Apple Developer 协议待接受；用户明确授权后已完成接受，账户历史显示 2026-09-29 接受，App Store Connect 阻塞横幅已消失。
 2. 本机存在该团队的 Apple Distribution 签名身份。Bundle ID `com.jasonzhou.fitnesstracker` 已在该团队下注册；匹配的 `Fitness Tracker App Store` profile 已创建、核验并安装，正式 App 记录 ID 为 `6817268320`。已用既有 Apple Distribution 身份完成构建 1 和 2 的签名归档、App Store IPA 导出及深度签名验证。构建 1 于本机时间 2026-09-29 03:54:39 成功上传；包含加密合规键的构建 2 于 04:14:03 成功上传，日志明确返回 `Upload succeeded` / `Uploaded package is processing`。最新上传日志为 `/private/tmp/fitness-ios-build2-upload.log`。
-3. 商店已保存 iPhone/iPad 各 4 张截图、健康健美分类、9+ 年龄问卷、非医疗设备、无数据收集、隐私网址、免费价格及仅中国大陆供应。构建 2 已处理完成并关联，出口合规预检通过。2026-09-29 约 04:20（本机 America/Chicago）正式提交，页面明确显示“已提交 1 个项目”和“正在等待审核”。[本次审核提交](https://appstoreconnect.apple.com/apps/6817268320/distribution/reviewsubmissions/details/d67cbd7f-330d-40b1-a8d0-f22512319091)，截图凭证 `artifacts/review/app-store-submitted.png`。已设置通过审核后自动发布；提交成功不代表审核已通过或已上架。[Apple 审核指南 5.1.1](https://developer.apple.com/app-store/review/guidelines/)
+3. 商店已保存 iPhone/iPad 各 4 张截图、健康健美分类、9+ 年龄问卷、非医疗设备、无数据收集、隐私网址、免费价格及仅中国大陆供应。构建 2 已处理完成并关联，出口合规预检通过。2026-09-29 约 04:20（本机 America/Chicago）正式提交，页面明确显示“已提交 1 个项目”和“正在等待审核”。[此前构建 2 提交（已移除）](https://appstoreconnect.apple.com/apps/6817268320/distribution/reviewsubmissions/details/d67cbd7f-330d-40b1-a8d0-f22512319091)，截图凭证 `artifacts/review/app-store-submitted.png`。已设置通过审核后自动发布；提交成功不代表审核已通过或已上架。[Apple 审核指南 5.1.1](https://developer.apple.com/app-store/review/guidelines/)
 4. 构建 2 实际送审预检未把 ICP 备案号列为阻断，这不代表最终备案豁免。Apple 中国大陆可用性说明对适用 App 要求有效 ICP 备案号，并要求备案内容与简体中文商店元数据一致。工信部通知针对在境内从事互联网信息服务的 App，要求履行备案。本版本运行不依赖联网；**离线实现不能自动代替主管部门/Apple 对备案适用性的判断**。若后续要求备案号，需核验现有备案及正式名称，不得编造或借用网站编号。[Apple 中国大陆可用性说明](https://developer.apple.com/help/app-store-connect/reference/app-information/app-information/)、[工信部 App 备案通知](https://ahca.miit.gov.cn/xxgkhlwgl/wzgl/art/2023/art_00c93cb439bd4943a0d8ab569561349b.html)
 5. 该产品是本地个人记录与估算工具，商店描述不能声称医学诊断、医疗效果或测量精度；营养和运动消耗数字应保留估算属性。没有实际使用阿里云服务，因此不应为上线强行新增云端记录上传。
 6. 原生分享、本地离线计算、记录编辑和报告构成实用功能，但 Apple 对 4.2 最低功能和应用体验仍独立评估；使用 Capacitor 本身不保证通过，也不等于必然被拒。[Apple 审核指南 4.2](https://developer.apple.com/app-store/review/guidelines/)
