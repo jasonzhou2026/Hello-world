@@ -1,7 +1,8 @@
 import { buildDailySummary, buildWeeklyReport } from "./domain/reports.js?v=44";
 import { getDailyDurationRecord } from "./domain/training.js?v=44";
 import { addDays } from "./domain/nutrition.js?v=32";
-import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=46";
+import { buildBackupPayload, parseBackupText } from "./domain/backup.js?v=48";
+import { buildWidgetSnapshot, mergeCompletionDates } from "./domain/widgets.js?v=48";
 import { buildMuscleRecency, buildTrainingComparison } from "./domain/overview.js?v=32";
 import { buildExportRows, createWorkbookBlobParts, XLSX_MIME_TYPE } from "./export/xlsx.js?v=44";
 import { createReportPdfBuffer, createReportDocxBuffer, PDF_MIME_TYPE, DOCX_MIME_TYPE } from "./export/reports.js?v=44";
@@ -14,6 +15,10 @@ const defaultStorageAdapters = { listRecords, saveRecord, softDeleteRecord };
 const storageAdapters = { ...defaultStorageAdapters };
 let muscleMapCleanup = null;
 let renderSequence = 0;
+let settingsWriteQueue = Promise.resolve();
+let widgetSyncQueue = Promise.resolve();
+let widgetPreviewStyle = "charcoal";
+let widgetDayTimer = null;
 
 export const state = {
   activeTab: "overview",
@@ -300,6 +305,81 @@ export async function loadApp() {
   state.settings = settings;
   state.errorMessage = null;
   renderApp();
+  await syncWidgets().catch((error) => console.warn("Widget sync failed.", error));
+}
+
+function widgetBridge() {
+  return typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()
+    ? window.Capacitor.Plugins?.FitnessWidgets : null;
+}
+
+function saveSettingsUpdate(buildRecord) {
+  const operation = settingsWriteQueue.then(async () => {
+    const record = buildRecord(state.settings);
+    if (record) state.settings = await storageAdapters.saveRecord("settings", record);
+    return state.settings;
+  });
+  settingsWriteQueue = operation.catch(() => {});
+  return operation;
+}
+
+async function mergeGoalCompletions(dates) {
+  await saveSettingsUpdate((settings) => {
+    const merged = mergeCompletionDates(settings?.goalCompletionDates, dates);
+    if (JSON.stringify(merged) === JSON.stringify(settings?.goalCompletionDates || [])) return null;
+    return { ...settings, id: "default", goalCompletionDates: merged };
+  });
+}
+
+export function syncWidgets() {
+  const operation = widgetSyncQueue.then(async () => {
+    const bridge = widgetBridge();
+    if (!state.settings || !bridge) return;
+    const result = await bridge.sync(buildWidgetSnapshot({ settings: state.settings, trainingSessions: state.trainingSessions }));
+    await mergeGoalCompletions(result.completionDates);
+    if (result.openGoal) {
+      clearEditingState();
+      state.activeTab = "training";
+      state.selectedDate = getLocalDateString();
+      renderApp();
+    }
+    refreshWidgetViews();
+  });
+  widgetSyncQueue = operation.catch(() => {});
+  return operation;
+}
+
+export async function completeTodayGoal(expectedDate = getLocalDateString()) {
+  const today = getLocalDateString();
+  if (expectedDate !== today) throw new Error("日期已变化，请切换至今天后完成任务。");
+  if (state.settings?.goalCompletionDates?.includes(today)) return;
+  const bridge = widgetBridge();
+  const result = bridge ? await bridge.completeToday() : { completionDates: [today] };
+  await mergeGoalCompletions(result.completionDates);
+  await syncWidgets();
+  refreshWidgetViews();
+}
+
+function refreshWidgetViews() {
+  const preview = appRoot?.querySelector("[data-widget-settings]");
+  if (preview) preview.innerHTML = renderWidgetSettings();
+  const goal = appRoot?.querySelector(".goal-card");
+  if (goal) goal.outerHTML = renderGoalCard();
+}
+
+function refreshWidgets() {
+  refreshWidgetViews();
+  void syncWidgets().catch((error) => console.warn("Widget sync failed.", error));
+}
+
+function scheduleWidgetDayRefresh() {
+  clearTimeout(widgetDayTimer);
+  const nextDay = new Date();
+  nextDay.setHours(24, 0, 0, 100);
+  widgetDayTimer = setTimeout(() => {
+    refreshWidgets();
+    scheduleWidgetDayRefresh();
+  }, nextDay.getTime() - Date.now());
 }
 
 export function renderApp() {
@@ -521,14 +601,13 @@ function renderTrainingPage() {
   const selectedTraining = recordsForDate(state.trainingSessions, state.selectedDate).filter((session) => session.category !== "duration");
   const duration = getDailyDurationRecord(state.trainingSessions, state.selectedDate);
   const summary = buildDailySummary({ date: state.selectedDate, foodEntries: state.foodEntries, trainingSessions: state.trainingSessions });
-  const comparison = buildTrainingComparison({ date: state.selectedDate, trainingSessions: state.trainingSessions, preferredExercise: state.settings.preferredExercise, preferredMuscleGroup: state.settings.preferredMuscleGroup });
   return `
     <section class="screen">
       ${renderTopbar("Training 训练", renderSettingsButton())}
       ${renderErrorBanner()}
       ${renderStatusBanner()}
       ${renderDateTools()}
-      ${renderGoalCard(comparison)}
+      ${renderGoalCard()}
       <div class="entry-actions">
         <button class="primary-button" type="button" data-open-dialog="strength">添加力量动作</button>
         <button class="ghost-button" type="button" data-open-dialog="activity">添加户外活动</button>
@@ -762,6 +841,7 @@ function renderSettingsPage() {
     <section class="screen">
       ${renderTopbar("Settings 设置", '<button class="icon-button" type="button" data-tab="overview" aria-label="Close settings" title="Close settings">&times;</button>')}
       ${renderErrorBanner()}
+      <section class="widget-settings" data-widget-settings>${renderWidgetSettings()}</section>
       <form class="entry-form settings-form" data-form="settings">
         <section class="settings-section">
           <div class="form-heading"><h2>Personal 基础</h2></div>
@@ -809,6 +889,56 @@ function renderSettingsPage() {
       <div class="report-export-actions"><a class="ghost-button" href="./privacy.html">隐私说明</a><a class="ghost-button" href="./support.html">帮助与支持</a></div>
     </section>
   `;
+}
+
+export function renderWidgetSettings() {
+  const snapshot = buildWidgetSnapshot({ settings: state.settings || {}, trainingSessions: state.trainingSessions });
+  const completed = snapshot.completionDates.includes(snapshot.date);
+  const percent = Math.round(snapshot.progress * 100);
+  const targetWeight = snapshot.detail.match(/(?:^| · )(\d+(?:\.\d+)?) kg$/)?.[1];
+  const goalLabel = `${snapshot.title}${targetWeight ? ` · ${targetWeight} kg` : ""}`;
+  const styles = [{ id: "charcoal", label: "深灰进度" }, { id: "purple", label: "紫色圆环" }, { id: "navy", label: "深蓝开关" }];
+  return `
+    <div class="section-heading"><h2>桌面小组件</h2><span>三种样式</span></div>
+    <div class="widget-style-options" role="group" aria-label="小组件样式预览">
+      ${styles.map((style) => `<button type="button" data-widget-style="${style.id}" aria-pressed="${widgetPreviewStyle === style.id}"><span class="widget-miniature widget-glass widget-glass-${style.id}${completed ? " is-complete" : ""}" aria-hidden="true"><span class="widget-miniature-title">今日目标</span>${style.id === "charcoal" ? `${renderWidgetDots(percent)}<span class="widget-miniature-gauge"></span>` : style.id === "purple" ? renderWidgetRing(percent) : '<span class="widget-toggle"><i></i></span>'}</span><span class="widget-style-name">${style.label}</span></button>`).join("")}
+    </div>
+    <div class="widget-preview widget-glass widget-glass-${widgetPreviewStyle} widget-preview-${widgetPreviewStyle}${completed ? " is-complete" : ""}" style="--widget-progress: ${percent}%" aria-label="${styles.find((style) => style.id === widgetPreviewStyle).label}小组件预览">
+      <div class="widget-preview-copy">
+        <span class="widget-preview-heading">今日目标</span>
+        <strong class="widget-preview-goal">${escapeHtml(goalLabel)}</strong>
+      </div>
+      <div class="widget-preview-visual">
+        ${widgetPreviewStyle === "charcoal" ? `<span class="widget-percent" data-widget-percent="${percent}" role="img" aria-label="重量进度 ${percent}%">${renderWidgetDots(percent)}</span><div class="widget-gauge" aria-hidden="true"><span></span><i></i></div>` : widgetPreviewStyle === "purple" ? renderWidgetRing(percent) : '<span class="widget-toggle" aria-hidden="true"><i></i></span>'}
+      </div>
+      <button class="widget-complete-action" type="button" data-complete-goal="${snapshot.date}" ${completed ? "disabled" : ""}>${completed ? "今日任务已完成" : "点击完成任务"}</button>
+    </div>
+    <p class="widget-instructions">长按主屏幕 → 编辑 → 添加小组件 → 搜索“训练与营养记录”，选择以上任一样式。这里可预览样式，桌面样式在添加小组件时选择。</p>
+    <p class="widget-instructions">iOS 17 及以上可在桌面点击完成任务；较早版本会打开 App。完成状态按天记录，与训练记录分开保存。</p>
+  `;
+}
+
+function renderWidgetDots(percent) {
+  const glyphs = {
+    "0": ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+    "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+    "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+    "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+    "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+    "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+    "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+    "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+    "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+    "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+    "%": ["11001", "11010", "00010", "00100", "01000", "01011", "10011"]
+  };
+  const text = `${Math.min(100, Math.max(0, Math.round(percent)))}%`;
+  const dots = [...text].flatMap((character, index) => glyphs[character].flatMap((row, y) => [...row].flatMap((dot, x) => dot === "1" ? `<circle cx="${index * 6 + x + 0.5}" cy="${y + 0.5}" r="0.29"/>` : []))).join("");
+  return `<svg class="widget-dot-number" viewBox="0 0 ${text.length * 6 - 1} 7" fill="currentColor" aria-hidden="true">${dots}</svg>`;
+}
+
+function renderWidgetRing(percent) {
+  return `<span class="widget-progress-ring" role="img" aria-label="重量进度 ${percent}%"><svg class="widget-ring-track" viewBox="0 0 110 110" fill="none" aria-hidden="true"><circle cx="55" cy="55" r="47" stroke="currentColor" stroke-opacity="0.2" stroke-width="1"/><path d="M 14 78 A 47 47 0 0 0 95 80" stroke="currentColor" stroke-opacity="0.38" stroke-width="2" stroke-dasharray="0.5 3"/>${percent > 0 ? `<circle class="widget-ring-progress" cx="55" cy="55" r="47" pathLength="100" stroke="#f3d951" stroke-width="3" stroke-linecap="round" stroke-dasharray="${percent} 100" transform="rotate(-90 55 55)"/>` : ""}</svg>${renderWidgetDots(percent)}</span>`;
 }
 
 function renderTabs() {
@@ -914,14 +1044,16 @@ function progressBar(percent) {
   return `<div class="progress-bar" aria-hidden="true"><span style="--progress: ${percent}%"></span></div>`;
 }
 
-function renderGoalCard(comparison) {
-  const exercise = comparison.exerciseName || state.settings.preferredExercise || "Not set 未设置";
-  const muscle = comparison.muscleGroup || state.settings.preferredMuscleGroup || "Not set 未设置";
+export function renderGoalCard() {
+  const exercise = state.settings.preferredExercise || "Not set 未设置";
+  const muscle = state.settings.preferredMuscleGroup || "Not set 未设置";
   const weightGoal = Number(state.settings.weightGoalKg) || 0;
+  const isToday = state.selectedDate === getLocalDateString();
+  const completed = state.settings.goalCompletionDates?.includes(state.selectedDate);
   return `
     <section class="goal-card">
       <div class="goal-primary">
-        <span>今日目标</span>
+        <span>${isToday ? "今日目标" : "当日目标"}</span>
         <strong>${escapeHtml(exercise)}</strong>
         <small>${escapeHtml(muscle)} · ${weightGoal ? `${formatNumber(weightGoal)} kg` : "Weight 待设置"}</small>
       </div>
@@ -929,6 +1061,10 @@ function renderGoalCard(comparison) {
       <div class="goal-notes">
         <p><b>BEST 最佳动作</b>${escapeHtml(state.settings.bestExerciseNote || "-")}</p>
         <p><b>MEMO 个人备注</b>${escapeHtml(state.settings.personalMemo || "-")}</p>
+      </div>
+      <div class="goal-completion">
+        ${completed ? '<span class="goal-completed">✓ 当日任务已完成</span>' : isToday ? `<button class="ghost-button" type="button" data-complete-goal="${state.selectedDate}">点击完成任务</button>` : '<button class="ghost-button" type="button" data-action="show-today-goal">切换至今天完成任务</button>'}
+        <small>完成状态单独保存，不影响训练时长或热量。</small>
       </div>
     </section>
   `;
@@ -1510,16 +1646,14 @@ async function handleSubmit(event) {
     }
 
     if (formType === "settings") {
-      state.settings = await storageAdapters.saveRecord(
-        "settings",
-        buildSettingsRecord(values, state.settings)
-      );
+      await saveSettingsUpdate((settings) => buildSettingsRecord(values, settings));
       state.activeTab = "overview";
     }
 
     state.errorMessage = null;
     state.activeDialog = null;
     renderApp();
+    refreshWidgets();
     if (formType === "settings" && typeof window !== "undefined") window.scrollTo(0, 0);
   } catch (error) {
     console.warn("Record save failed.", error);
@@ -1536,6 +1670,33 @@ export function bindAppInteractions(root) {
 }
 
 async function handleClick(event) {
+  const widgetStyle = event.target.closest("[data-widget-style]");
+  if (widgetStyle) {
+    if (["charcoal", "purple", "navy"].includes(widgetStyle.dataset.widgetStyle)) {
+      widgetPreviewStyle = widgetStyle.dataset.widgetStyle;
+      refreshWidgetViews();
+      appRoot?.querySelector(`[data-widget-style="${widgetPreviewStyle}"]`)?.focus();
+    }
+    return;
+  }
+  const completeGoal = event.target.closest("[data-complete-goal]");
+  if (completeGoal) {
+    completeGoal.disabled = true;
+    try {
+      await completeTodayGoal(completeGoal.dataset.completeGoal);
+    } catch (error) {
+      state.errorMessage = error.message || "任务完成状态保存失败，请重试。";
+      renderApp();
+    } finally {
+      completeGoal.disabled = false;
+    }
+    return;
+  }
+  if (event.target.closest('[data-action="show-today-goal"]')) {
+    state.selectedDate = getLocalDateString();
+    renderApp();
+    return;
+  }
   const dialogButton = event.target.closest("[data-open-dialog]");
   if (dialogButton) {
     clearEditingState();
@@ -1617,6 +1778,7 @@ async function handleClick(event) {
       state.errorMessage = null;
       state.statusMessage = `Deleted ${food.length + training.length} records from ${start} to ${end}.`;
       renderApp();
+      refreshWidgets();
     } catch (error) {
       console.warn("Date cleanup failed.", error);
       state.errorMessage = "Could not delete the selected date. Please try again.";
@@ -1642,6 +1804,7 @@ async function handleClick(event) {
       state.statusMessage = "Record deleted. 记录已删除。";
       state.errorMessage = null;
       renderApp();
+      refreshWidgets();
     } catch (error) {
       console.warn("Record deletion failed.", error);
       state.errorMessage = "Could not delete the record. Please try again.";
@@ -1735,17 +1898,20 @@ async function handleChange(event) {
     if (!file) return;
     try {
       const backup = parseBackupText(await file.text());
-      const [foodEntries, trainingSessions, settings] = await Promise.all([
+      const [foodEntries, trainingSessions] = await Promise.all([
         Promise.all(backup.foodEntries.map((entry) => storageAdapters.saveRecord("foodEntries", entry))),
         Promise.all(backup.trainingSessions.map((session) => storageAdapters.saveRecord("trainingSessions", session))),
-        backup.settings ? storageAdapters.saveRecord("settings", backup.settings) : Promise.resolve(null)
+        backup.settings ? saveSettingsUpdate((settings) => ({
+          ...backup.settings,
+          goalCompletionDates: mergeCompletionDates(settings?.goalCompletionDates, backup.settings.goalCompletionDates)
+        })) : Promise.resolve(null)
       ]);
       state.foodEntries = mergeRecords(state.foodEntries, foodEntries);
       state.trainingSessions = mergeRecords(state.trainingSessions, trainingSessions);
-      if (settings) state.settings = settings;
       state.errorMessage = null;
       state.statusMessage = `Imported ${foodEntries.length + trainingSessions.length} records.`;
       renderApp();
+      refreshWidgets();
     } catch (error) {
       console.warn("Backup import failed.", error);
       state.errorMessage = error.message || "Could not import the backup.";
@@ -1998,6 +2164,14 @@ if (appRoot) {
     </section>
   `;
   bindAppInteractions(appRoot);
+  window.addEventListener("fitnessWidgetsChanged", refreshWidgets);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshWidgets();
+      scheduleWidgetDayRefresh();
+    }
+  });
+  scheduleWidgetDayRefresh();
   loadApp().catch((error) => {
     console.warn("Application failed to load.", error);
     appRoot.innerHTML = `

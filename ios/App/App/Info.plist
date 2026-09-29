@@ -68,6 +68,15 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.jasonzhou.fitnesstracker.goal</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>fitnesstracker</string></array>
+		</dict>
+	</array>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>zh_CN</string>

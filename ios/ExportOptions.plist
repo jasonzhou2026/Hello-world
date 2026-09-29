@@ -16,6 +16,8 @@
     <dict>
         <key>com.jasonzhou.fitnesstracker</key>
         <string>Fitness Tracker App Store</string>
+        <key>com.jasonzhou.fitnesstracker.widgets</key>
+        <string>Fitness Tracker Widgets App Store</string>
     </dict>
     <key>uploadSymbols</key>
     <true/>

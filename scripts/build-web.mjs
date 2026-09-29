@@ -15,6 +15,6 @@ await cp(path.join(root, "node_modules/@capacitor/core/dist/capacitor.js"), path
 await cp(path.join(root, "node_modules/@capacitor/core/LICENSE"), path.join(destination, "CAPACITOR-LICENSE.txt"));
 const index = await readFile(path.join(destination, "index.html"), "utf8");
 await writeFile(path.join(destination, "index.html"), index.replace("</head>", `    <script src="./capacitor-runtime.js"></script>
-    <script>if (Capacitor.isNativePlatform()) Capacitor.registerPlugin("FitnessExport");</script>
+    <script>if (Capacitor.isNativePlatform()) { Capacitor.registerPlugin("FitnessExport"); Capacitor.registerPlugin("FitnessWidgets"); }</script>
   </head>`));
 console.log("Bundled offline web assets in dist/.");

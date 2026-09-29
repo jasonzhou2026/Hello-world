@@ -23,7 +23,7 @@ execFileSync("xcodebuild", [
   "-derivedDataPath", path.join(staging, "DerivedData"), "-resultBundlePath", buildLog,
   "-scmProvider", "system",
   "CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=Apple Distribution",
-  "PROVISIONING_PROFILE_SPECIFIER=Fitness Tracker App Store", "archive"
+  "archive"
 ], { stdio: "inherit" });
 execFileSync("xcodebuild", [
   "-exportArchive", "-archivePath", archive, "-exportPath", path.join(staging, "export"),

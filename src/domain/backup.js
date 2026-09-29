@@ -1,3 +1,5 @@
+import { isGoalDate } from "./widgets.js?v=48";
+
 const BACKUP_FORMAT = "fitness-pwa-backup";
 const BACKUP_VERSION = 1;
 
@@ -86,6 +88,7 @@ function validTrainingRecord(record) {
 
 function validSettings(settings) {
   return isRecord(settings)
+    && optionalFields(settings, ["goalCompletionDates"], (dates) => Array.isArray(dates) && dates.every(isGoalDate))
     && optionalFields(settings, ["preferredExercise", "preferredMuscleGroup", "bestExerciseNote", "personalMemo"], isText)
     && optionalFields(settings, ["bodyWeightKg", "calorieGoal", "weightGoalKg"], isNonnegative)
     && optionalFields(settings, ["macroTargets", "micronutrientTargets"], isNumericMap)

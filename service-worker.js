@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "fitness-tracker-pwa-";
-const CACHE_NAME = "fitness-tracker-pwa-v47";
+const CACHE_NAME = "fitness-tracker-pwa-v49";
 const APP_ASSETS = [
   "./src/export/reports.js?v=44",
   "./src/export/xlsx.js?v=44",
@@ -15,10 +15,11 @@ const APP_ASSETS = [
   "./privacy.html",
   "./support.html",
   "./manifest.webmanifest",
-  "./src/styles.css?v=47",
-  "./src/app.js?v=47",
+  "./src/styles.css?v=49",
+  "./src/app.js?v=49",
   "./src/muscle-map.js?v=32",
-  "./src/domain/backup.js?v=46",
+  "./src/domain/backup.js?v=48",
+  "./src/domain/widgets.js?v=48",
   "./src/domain/nutrition.js?v=32",
   "./src/domain/overview.js?v=32",
   "./src/domain/nutrition.js",
